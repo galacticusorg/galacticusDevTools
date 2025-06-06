@@ -3,12 +3,17 @@ use strict;
 use warnings;
 use File::Find;
 use XML::LibXML qw(:libxml);
+use DateTime;
 
 # Script used to automate migration of all parameter files.
 # Andrew Benson (23-May-2025).
 
 # Simply run the script from a Galacticus directory.
 
+# Get a timestamp for the update.
+my $timeStamp = DateTime->now();
+
+# Migrate all files.
 my @parameterPaths = ( "parameters", "constraints", "testSuite" );
 find(\&runMigrations,@parameterPaths);
 
@@ -28,7 +33,7 @@ sub runMigrations {
     my $parser = XML::LibXML->new();
     my $doc   = $parser->parse_file($fileName);
     return
-	unless ( $doc->findnodes('parameters') );
+	unless ( $doc->findnodes('//parameters') );    
     # Pre-process the file to concatenate any attribute values that are split across multiple lines.
     open(my $fileInput ,"<",$fileName       );
     open(my $fileOutput,">",$fileName.".tmp");
@@ -44,7 +49,7 @@ sub runMigrations {
     close($fileInput );
     close($fileOutput);
     # Migrate the parameter file.
-    system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; ./scripts/aux/parametersMigrate.pl ".$File::Find::name.".tmp migration__.xml.tmp --validate no");
+    system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; ./scripts/aux/parametersMigrate.pl ".$File::Find::name.".tmp migration__.xml.tmp --validate no --timeStamp ".$timeStamp);
     # Make a patch from the old to the new file, but ignoring changes in whitespace.
     system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; diff -w -p ".$File::Find::name.".tmp migration__.xml.tmp > tmp__.patch");
     # Apply the patch to the old file - we now have migrations applied, but no change in whitespace formatting.
