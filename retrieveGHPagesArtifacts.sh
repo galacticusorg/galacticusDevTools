@@ -13,7 +13,7 @@ if [[ $# -eq 0 || $# -gt 1 ]]; then
     gh run list --repo galacticusorg/galacticus --workflow "CI/CD"
     exit
 fi
-runID = $1
+runID=$1
 
 # Download artifacts.
 mkdir -p artifacts
