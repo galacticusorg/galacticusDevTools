@@ -59,6 +59,42 @@ cat <<EOF >> tmp.js
 EOF
 mv tmp.js dev/bench/darkMatterOnlySubhalos/data.js
 
+## DMO COZMIC WDM 3keV benchmarks.
+head -n -3 dev/bench/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/data.js > tmp.js
+cat <<EOF >> tmp.js
+      ,{
+        "commit": {
+          "author": {
+            "email": "abensonca@gmail.com",
+            "name": "Andrew Benson",
+            "username": "abensonca"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dummy",
+          "message": "local",
+          "timestamp": "???",
+          "tree_id": "???",
+          "url": "https://github.com/galacticusorg/galacticus/actions/runs/${runID}"
+        },
+        "date": 0,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+EOF
+sed '1d;$d' artifacts/validate-darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/validate_darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay.json >> tmp.js
+cat <<EOF >> tmp.js
+        ]
+      }
+    ]
+  }
+}
+EOF
+mv tmp.js dev/bench/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/data.js
+
 ## MW benchmarks.
 head -n -3 dev/bench/milkyWayModel/data.js > tmp.js
 cat <<EOF >> tmp.js
@@ -107,6 +143,7 @@ cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/results_darkMa
 
 # Open the web pages.
 xdg-open dev/bench/darkMatterOnlySubhalos/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/index.html
 xdg-open dev/bench/milkyWayModel/index.html
 xdg-open dev/valid/darkMatterOnlySubhalos/index.html
 xdg-open dev/valid/milkyWayModel/index.html
