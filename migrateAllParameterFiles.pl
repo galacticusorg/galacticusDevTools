@@ -38,12 +38,17 @@ sub runMigrations {
     open(my $fileInput ,"<",$fileName       );
     open(my $fileOutput,">",$fileName.".tmp");
     my $inMultiline = 0;
+    my $inComment = 0;
     while ( my $line = <$fileInput> ) {
 	my $countQuotes = $line =~ tr/"//;
+	$inComment = 1
+	    if ( $line =~ m/<!\-\-/ );
 	$inMultiline = 1-$inMultiline
-	    if ( $countQuotes % 2 == 1 );
+	    if ( $countQuotes % 2 == 1 && ! $inComment );
 	$line =~ s/\n/\%\%NEWLINE\%\%/
-	    if ( $inMultiline );
+	    if ( $inMultiline          && ! $inComment );
+	$inComment = 0
+	    if ( $line =~ m/\-\->/ );
 	print $fileOutput $line;
     }
     close($fileInput );
@@ -51,7 +56,7 @@ sub runMigrations {
     # Migrate the parameter file.
     system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; ./scripts/aux/parametersMigrate.pl ".$File::Find::name.".tmp migration__.xml.tmp --validate no --timeStamp ".$timeStamp);
     # Make a patch from the old to the new file, but ignoring changes in whitespace.
-    system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; diff -w -p ".$File::Find::name.".tmp migration__.xml.tmp > tmp__.patch");
+    system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; diff -w -u ".$File::Find::name.".tmp migration__.xml.tmp > tmp__.patch");
     # Apply the patch to the old file - we now have migrations applied, but no change in whitespace formatting.
     system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; patch ".$File::Find::name.".tmp tmp__.patch");
     # Undo any split line reformatting that we previously applied.
