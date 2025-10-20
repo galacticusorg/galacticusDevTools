@@ -59,9 +59,11 @@ cat <<EOF >> tmp.js
 EOF
 mv tmp.js dev/bench/darkMatterOnlySubhalos/data.js
 
-## DMO COZMIC WDM 3keV benchmarks.
-head -n -3 dev/bench/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/data.js > tmp.js
-cat <<EOF >> tmp.js
+## DMO Symphony benchmarks.
+for resolution in X1 X8 X64
+do
+    head -n -3 dev/bench/darkMatterOnlySubhalosSymphonyCDMMilkyWay${resolution}/data.js > tmp.js
+    cat <<EOF >> tmp.js
       ,{
         "commit": {
           "author": {
@@ -85,15 +87,58 @@ cat <<EOF >> tmp.js
         "tool": "customSmallerIsBetter",
         "benches": [
 EOF
-sed '1d;$d' artifacts/validate-darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/validate_darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay.json >> tmp.js
-cat <<EOF >> tmp.js
+    sed '1d;$d' artifacts/validate-darkMatterOnlySubhalosSymphonyCDMMilkyWay${resolution}/validate_darkMatterOnlySubhalosSymphonyCDMMilkyWay${resolution}.json >> tmp.js
+    cat <<EOF >> tmp.js
         ]
       }
     ]
   }
 }
 EOF
-mv tmp.js dev/bench/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/data.js
+    mv tmp.js dev/bench/darkMatterOnlySubhalosSymphonyCDMMilkyWay${resolution}/data.js
+done
+
+## DMO COZMIC WDM benchmarks.
+for mass in 3keV 4keV 5keV 6keV 6.5keV 10keV
+do
+    for resolution in X1 X8
+    do
+	head -n -3 dev/bench/darkMatterOnlySubhalosCOZMICWDM${mass}MilkyWay${resolution}/data.js > tmp.js
+	cat <<EOF >> tmp.js
+      ,{
+        "commit": {
+          "author": {
+            "email": "abensonca@gmail.com",
+            "name": "Andrew Benson",
+            "username": "abensonca"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dummy",
+          "message": "local",
+          "timestamp": "???",
+          "tree_id": "???",
+          "url": "https://github.com/galacticusorg/galacticus/actions/runs/${runID}"
+        },
+        "date": 0,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+EOF
+	sed '1d;$d' artifacts/validate-darkMatterOnlySubhalosCOZMICWDM${mass}MilkyWay${resolution}/validate_darkMatterOnlySubhalosCOZMICWDM${mass}MilkyWay${resolution}.json >> tmp.js
+	cat <<EOF >> tmp.js
+        ]
+      }
+    ]
+  }
+}
+EOF
+	mv tmp.js dev/bench/darkMatterOnlySubhalosCOZMICWDM${mass}MilkyWay${resolution}/data.js
+    done
+done
 
 ## MW benchmarks.
 head -n -3 dev/bench/milkyWayModel/data.js > tmp.js
@@ -134,20 +179,60 @@ EOF
 mv tmp.js dev/bench/milkyWayModel/data.js
 
 ## Validation plots.
-cp artifacts/validate-darkMatterOnlySubhalos/results_darkMatterOnlySubhalos.json                                           dev/valid/darkMatterOnlySubhalos/results.json
-cp artifacts/validate-milkyWayModel/results_milkyWayModel.json                                                             dev/valid/milkyWayModel/results.json
-cp artifacts/validate-darkMatterOnlySubhalosSymphonyMilkyWay/results_darkMatterOnlySubhalosSymphonyMilkyWay.json           dev/valid/darkMatterOnlySubhalosSymphonyMilkyWay/results.json
-cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/results_darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay.json dev/valid/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/results.json
+cp artifacts/validate-darkMatterOnlySubhalos/results_darkMatterOnlySubhalos.json                                                   dev/valid/darkMatterOnlySubhalos/results.json
+cp artifacts/validate-milkyWayModel/results_milkyWayModel.json                                                                     dev/valid/milkyWayModel/results.json
+cp artifacts/validate-darkMatterOnlySubhalosSymphonyCDMMilkyWayX1/results_darkMatterOnlySubhalosSymphonyCDMMilkyWayX1.json         dev/valid/darkMatterOnlySubhalosSymphonyCDMMilkyWayX1/results.json
+cp artifacts/validate-darkMatterOnlySubhalosSymphonyCDMMilkyWayX8/results_darkMatterOnlySubhalosSymphonyCDMMilkyWayX8.json         dev/valid/darkMatterOnlySubhalosSymphonyCDMMilkyWayX8/results.json
+cp artifacts/validate-darkMatterOnlySubhalosSymphonyCDMMilkyWayX64/results_darkMatterOnlySubhalosSymphonyCDMMilkyWayX64.json       dev/valid/darkMatterOnlySubhalosSymphonyCDMMilkyWayX64/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX1/results_darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX1.json     dev/valid/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX1/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX1/results_darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX1.json     dev/valid/darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX1/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX1/results_darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX1.json     dev/valid/darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX1/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX1/results_darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX1.json     dev/valid/darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX1/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX1/results_darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX1.json dev/valid/darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX1/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX1/results_darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX1.json   dev/valid/darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX1/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX8/results_darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX8.json     dev/valid/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX8/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX8/results_darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX8.json     dev/valid/darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX8/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX8/results_darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX8.json     dev/valid/darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX8/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX8/results_darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX8.json     dev/valid/darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX8/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX8/results_darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX8.json dev/valid/darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX8/results.json
+cp artifacts/validate-darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX8/results_darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX8.json   dev/valid/darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX8/results.json
 
 ## NOTE: There are many other validation and benchmark datasets that could be included here. Add them as needed.
 
 # Open the web pages.
 xdg-open dev/bench/darkMatterOnlySubhalos/index.html
-xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/index.html
 xdg-open dev/bench/milkyWayModel/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosSymphonyCDMMilkyWayX1/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosSymphonyCDMMilkyWayX8/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosSymphonyCDMMilkyWayX64/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX1/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX1/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX1/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX1/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX1/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX1/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX8/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX8/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX8/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX8/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX8/index.html
+xdg-open dev/bench/darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX8/index.html
 xdg-open dev/valid/darkMatterOnlySubhalos/index.html
 xdg-open dev/valid/milkyWayModel/index.html
-xdg-open dev/valid/darkMatterOnlySubhalosSymphonyMilkyWay/index.html
-xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWay/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosSymphonyCDMMilkyWayX1/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosSymphonyCDMMilkyWayX8/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosSymphonyCDMMilkyWayX64/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX1/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX1/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX1/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX1/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX1/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX1/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM3keVMilkyWayX8/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM4keVMilkyWayX8/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM5keVMilkyWayX8/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM6keVMilkyWayX8/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM6.5keVMilkyWayX8/index.html
+xdg-open dev/valid/darkMatterOnlySubhalosCOZMICWDM10keVMilkyWayX8/index.html
 
 exit
