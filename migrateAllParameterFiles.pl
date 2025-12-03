@@ -17,6 +17,11 @@ my $timeStamp = DateTime->now();
 my @parameterPaths = ( "parameters", "constraints", "testSuite" );
 find(\&runMigrations,@parameterPaths);
 
+# Reset an outdated revision is test suite parameter files that explicitly probe this issue.
+foreach my $file ( "strictOutdated.xml", "unstrictOutdated.xml" ) {
+    system("sed -r s/'lastModified\s+revision=\"[a-f0-9]+\"'/'lastModified\s+revision=\"262562000c251ee5b935019673f606a8a8c47c10\"'/ testSuite/parameters/".$file);
+}
+
 exit;
 
 sub runMigrations {
