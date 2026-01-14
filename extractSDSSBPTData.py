@@ -49,7 +49,7 @@ fluxes['balmerAlpha6565'] = lines['h_alpha_flux'  ][select]
 fluxes['balmerBeta4863' ] = lines['h_beta_flux'   ][select]
 fluxes['oxygenII3727'   ] = lines['oii_3726_flux' ][select]
 fluxes['oxygenIII5008'  ] = lines['oiii_5007_flux'][select]
-fluxes['nitrogenII6585' ] = lines['nii_6548_flux' ][select]
+fluxes['nitrogenII6585' ] = lines['nii_6584_flux' ][select]
 fluxes['sulfurII6718'   ] = lines['sii_6717_flux' ][select]
 fluxes['sulfurII6733'   ] = lines['sii_6731_flux' ][select]
 
