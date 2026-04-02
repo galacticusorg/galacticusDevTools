@@ -4,7 +4,8 @@ use warnings;
 use File::Find;
 use XML::LibXML qw(:libxml);
 use DateTime;
-
+use File::Copy;
+    
 # Script used to automate migration of all parameter files.
 # Andrew Benson (23-May-2025).
 
@@ -17,9 +18,9 @@ my $timeStamp = DateTime->now();
 my @parameterPaths = ( "parameters", "constraints", "testSuite" );
 find(\&runMigrations,@parameterPaths);
 
-# Reset an outdated revision is test suite parameter files that explicitly probe this issue.
+# Reset an outdated revision in test suite parameter files that explicitly probe this issue.
 foreach my $file ( "strictOutdated.xml", "unstrictOutdated.xml" ) {
-    system("sed -r s/'lastModified\s+revision=\"[a-f0-9]+\"'/'lastModified\s+revision=\"262562000c251ee5b935019673f606a8a8c47c10\"'/ testSuite/parameters/".$file);
+    system("sed -i~ -r s/'lastModified\\s+revision=\"[a-f0-9]+\"'/'lastModified\\s+revision=\"262562000c251ee5b935019673f606a8a8c47c10\"'/ testSuite/parameters/".$file);
 }
 
 exit;
@@ -40,8 +41,8 @@ sub runMigrations {
     return
 	unless ( $doc->findnodes('//parameters') );    
     # Migrate the parameter file.
-    system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; ./scripts/aux/parametersMigrate.pl ".$File::Find::name." migration__.xml.tmp --ignoreWhiteSpaceChanges yes --validate no --timeStamp ".$timeStamp);
+    system("cd ".$ENV{'GALACTICUS_EXEC_PATH'}."; ./scripts/aux/parametersMigrate.py ".$File::Find::name." migration__.xml.tmp --ignoreWhiteSpaceChanges yes --validate no --timeStamp ".$timeStamp);
     # Clean up.
-    mv($ENV{'GALACTICUS_EXEC_PATH'}."/migration__.xml.tmp",$File::Find::name);
+    move($ENV{'GALACTICUS_EXEC_PATH'}."/migration__.xml.tmp",$fileName) or die "Move failed: $!";
     return;
 }
