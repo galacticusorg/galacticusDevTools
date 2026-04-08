@@ -60,7 +60,7 @@ for filename in ("strictOutdated.xml", "unstrictOutdated.xml"):
     subprocess.run(
         [
             "sed", "-i~", "-r",
-            r's/lastModified\s+revision="[a-f0-9]+"/lastModified\s+revision="262562000c251ee5b935019673f606a8a8c47c10"/',
+            r's/lastModified\s+revision="[a-f0-9]+"/lastModified revision="262562000c251ee5b935019673f606a8a8c47c10"/',
             filepath,
         ],
         check=True,
