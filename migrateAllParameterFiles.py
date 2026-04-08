@@ -35,7 +35,7 @@ for base_path in parameter_paths:
                 tree = etree.parse(filepath)
             except etree.XMLSyntaxError:
                 continue
-            if not tree.findall("//parameters"):
+            if not tree.xpath("//parameters"):
                 continue
             # Migrate the parameter file.
             exec_path = os.environ["GALACTICUS_EXEC_PATH"]
