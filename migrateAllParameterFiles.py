@@ -15,15 +15,25 @@ time_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 # Migrate all files.
 parameter_paths = ["parameters", "constraints", "testSuite"]
+excluded_paths = {
+    os.path.normpath(os.path.join("constraints", "parameters")),
+    os.path.normpath(os.path.join("constraints", "dataAnalysis")),
+    os.path.normpath(os.path.join("testSuite", "outputs")),
+}
 
 for base_path in parameter_paths:
     for dirpath, dirnames, filenames in os.walk(base_path):
+        norm_dirpath = os.path.normpath(dirpath)
+        dirnames[:] = [
+            dirname
+            for dirname in dirnames
+            if os.path.normpath(os.path.join(dirpath, dirname)) not in excluded_paths
+        ]
         # Ignore certain paths.
-        norm = dirpath.replace(os.sep, "/")
-        if (
-            "constraints/parameters" in norm
-            or "constraints/dataAnalysis" in norm
-            or "testSuite/outputs" in norm
+        if any(
+            norm_dirpath == excluded_path
+            or norm_dirpath.startswith(excluded_path + os.sep)
+            for excluded_path in excluded_paths
         ):
             continue
         for filename in filenames:
@@ -38,7 +48,13 @@ for base_path in parameter_paths:
             if not tree.xpath("//parameters"):
                 continue
             # Migrate the parameter file.
-            exec_path = os.environ["GALACTICUS_EXEC_PATH"]
+            exec_path = os.environ.get("GALACTICUS_EXEC_PATH")
+            if not exec_path:
+                raise RuntimeError(
+                    "GALACTICUS_EXEC_PATH is not set; set this environment variable "
+                    "to the Galacticus executable directory before running "
+                    "migrateAllParameterFiles.py."
+                )
             tmp_file = os.path.join(exec_path, "migration__.xml.tmp")
             subprocess.run(
                 [
