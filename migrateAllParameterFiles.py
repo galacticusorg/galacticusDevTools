@@ -42,7 +42,8 @@ for base_path in parameter_paths:
             filepath = os.path.join(dirpath, filename)
             # Parse XML and ignore any non-parameter files.
             try:
-                tree = etree.parse(filepath)
+                parser = etree.XMLParser(resolve_entities=False, no_network=True)
+                tree = etree.parse(filepath, parser)
             except etree.XMLSyntaxError:
                 continue
             if not tree.xpath("//parameters"):
