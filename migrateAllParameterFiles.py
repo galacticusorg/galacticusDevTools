@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import os
-import shutil
 import subprocess
+import tempfile
+from pathlib import Path
 from datetime import datetime, timezone
 from lxml import etree
 
@@ -56,12 +57,12 @@ for base_path in parameter_paths:
                     "to the Galacticus executable directory before running "
                     "migrateAllParameterFiles.py."
                 )
-            tmp_file = os.path.join(exec_path, "migration__.xml.tmp")
+            tmp_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, dir=Path(filepath).parent)
             subprocess.run(
                 [
                     "./scripts/aux/parametersMigrate.py",
                     filepath,
-                    tmp_file,
+                    tmp_file.name,
                     "--ignoreWhiteSpaceChanges", "yes",
                     "--validate", "no",
                     "--timeStamp", time_stamp,
@@ -69,7 +70,7 @@ for base_path in parameter_paths:
                 cwd=exec_path,
                 check=True,
             )
-            shutil.move(tmp_file, filepath)
+            os.replace(tmp_file.name, filepath)
 
 # Reset an outdated revision in test suite parameter files that explicitly probe this issue.
 for filename in ("strictOutdated.xml", "unstrictOutdated.xml"):
