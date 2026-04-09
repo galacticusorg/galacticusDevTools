@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -75,11 +76,8 @@ for base_path in parameter_paths:
 # Reset an outdated revision in test suite parameter files that explicitly probe this issue.
 for filename in ("strictOutdated.xml", "unstrictOutdated.xml"):
     filepath = os.path.join("testSuite", "parameters", filename)
-    subprocess.run(
-        [
-            "sed", "-i~", "-r",
-            r's/lastModified\s+revision="[a-f0-9]+"/lastModified revision="262562000c251ee5b935019673f606a8a8c47c10"/',
-            filepath,
-        ],
-        check=True,
-    )
+    with open(filepath, 'r') as f:
+        content = f.read()
+    new_content = re.sub(r'lastModified\s+revision="[a-f0-9]+', 'lastModified revision="262562000c251ee5b935019673f606a8a8c47c10"', content)
+    with open(filepath, 'w') as f:
+        f.write(new_content)
