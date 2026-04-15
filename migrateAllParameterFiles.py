@@ -78,6 +78,6 @@ for filename in ("strictOutdated.xml", "unstrictOutdated.xml"):
     filepath = os.path.join("testSuite", "parameters", filename)
     with open(filepath, 'r') as f:
         content = f.read()
-    new_content = re.sub(r'lastModified\s+revision="[a-f0-9]+', 'lastModified revision="262562000c251ee5b935019673f606a8a8c47c10"', content)
+    new_content = re.sub(r'lastModified\s+revision="[a-f0-9]+"', 'lastModified revision="262562000c251ee5b935019673f606a8a8c47c10"', content)
     with open(filepath, 'w') as f:
         f.write(new_content)
