@@ -16,7 +16,7 @@ EXES=()
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -r|--repeats) REPEATS="$2"; shift ;;
-        -e|--executable) FILE+=("$2"); shift ;;
+        -e|--executable) EXES+=("$2"); shift ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
     shift # Move to the next argument
@@ -37,7 +37,7 @@ if [[ $haveSudo -eq 1 ]]; then
 fi
 
 # Iterate.
-for i in {1..${REPEATS}}; do
+for ((i=1; i<=${REPEATS}; i++)); do
     echo Iteration ${i}
     
     # Run
