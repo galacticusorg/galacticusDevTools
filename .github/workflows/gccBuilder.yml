@@ -29,7 +29,7 @@ jobs:
           ./contrib/download_prerequisites
           mkdir build && cd build
           ../configure --prefix=/opt/gcc-16 \
-            --enable-languages=c,c++ --disable-multilib --disable-bootstrap \
+            --enable-languages=c,c++,fortran --disable-multilib --disable-bootstrap \
             --with-sysroot="$(xcrun --show-sdk-path)"
           make -j"$(sysctl -n hw.ncpu)"
           sudo make install
