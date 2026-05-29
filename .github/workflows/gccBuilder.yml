@@ -1,0 +1,51 @@
+name: 'Build GCC on Mac OS'
+on:
+  workflow_dispatch: {}
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-15-intel, arch: x86_64}   # Intel
+          - {os: macos-15, arch: arm64}    # Apple Silicon
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Build GCC 16
+        run: |
+          set -euo pipefail
+          SRC="$RUNNER_TEMP/gccsrc"
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            git clone -b master-wip-apple-si-on-r16-8803-g376d03b7b44da2 \
+              https://github.com/iains/gcc-darwin-arm64.git "$SRC"
+            REF=$(git -C "$SRC" rev-parse --short HEAD)
+          else
+            curl -L -O https://ftp.gnu.org/gnu/gcc/gcc-16.1.0/gcc-16.1.0.tar.xz
+            tar xf gcc-16.1.0.tar.xz && mv gcc-16.1.0 "$SRC"
+            REF=release
+          fi
+          cd "$SRC"
+          GCC_VER=$(cat gcc/BASE-VER)
+          ./contrib/download_prerequisites
+          mkdir build && cd build
+          ../configure --prefix=/opt/gcc-16 \
+            --enable-languages=c,c++ --disable-multilib --disable-bootstrap \
+            --with-sysroot="$(xcrun --show-sdk-path)"
+          make -j"$(sysctl -n hw.ncpu)"
+          sudo make install
+          # optional: shrink the payload
+          sudo find /opt/gcc-16 -type f -perm +111 -exec strip -S {} + 2>/dev/null || true
+          TARBALL="$RUNNER_TEMP/gcc-${GCC_VER}-${{ matrix.arch }}-${REF}.tar.gz"
+          sudo tar -C / -czf "$TARBALL" opt/gcc-16
+          shasum -a 256 "$TARBALL" | tee "$TARBALL.sha256"
+          echo "TARBALL=$TARBALL" >> "$GITHUB_ENV"
+
+      - name: Upload GCC 16 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcc16-${{ matrix.arch }}
+          path: |
+            ${{ env.TARBALL }}
+            ${{ env.TARBALL }}.sha256
+          if-no-files-found: error
+          retention-days: 7
