@@ -62,6 +62,24 @@ concentration, etc.) of a reference halo, and prints them so that they can be
 compared against the values produced by Galacticus' Fortran test
 [`tests.prompt_cusps.F90`](https://github.com/galacticusorg/galacticus/blob/master/source/tests.prompt_cusps.F90).
 
+### `plotAnalyses.py`
+
+Overlays the on-the-fly `analyses` results stored in Galacticus HDF5 output
+files so that a test run can be compared against a reference run. Given a test
+path and a reference path -- each either a single HDF5 file or a directory of
+them -- it matches files by name, and for every file present in both locations
+plots each `function1D` analysis under `/analyses` (the test curve, the
+reference curve, and any target/observational overlay) into a PDF. The PDFs are
+written into a per-model subdirectory `analyses_<model>/` under the output
+directory (the current directory by default). Files present in only one of the
+two paths are reported and skipped.
+
+```
+./plotAnalyses.py <testPath> <referencePath> [-o <outputDir>] [-g <glob>]
+```
+
+Requires the `dendros` package.
+
 ### `retrieveGHPagesArtifacts.sh`
 
 Pulls validation, benchmark, and build-profile artifacts from a Galacticus
