@@ -112,6 +112,24 @@ removing lines. See `deltaTestCaseReducer/ReadMe.md` for usage and
 is redistributed under its original BSD license; see
 `deltaTestCaseReducer/License.txt`.
 
+### `allocationProfiler/`
+
+A lightweight `LD_PRELOAD` allocation profiler for finding which call sites drive
+a program's heap-allocation churn. It interposes `malloc`/`calloc`/`realloc` and
+aggregates each allocation by call-stack, so memory use is bounded by the number
+of distinct allocation stacks rather than the number of allocations -- letting it
+profile an allocation-heavy run (a Galacticus model can make billions of
+allocations) to completion, where a record-every-event profiler such as heaptrack
+exhausts RAM. It counts cumulative allocations including freed temporaries (which
+a live-heap profiler cannot see), supports 1-in-N sampling for fast turnaround,
+and can report the inclusive share of allocations attributable to a target regex
+(e.g. a particular object's construct/destroy lifecycle). See
+`allocationProfiler/ReadMe.md` for usage.
+
+```
+./allocationProfiler/runAllocProf.sh <program> [args...]
+```
+
 ## License
 
 The tools in this repository are released under the MIT License -- see
