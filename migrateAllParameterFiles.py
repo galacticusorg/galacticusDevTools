@@ -2,6 +2,7 @@
 import os
 import re
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
@@ -14,6 +15,44 @@ from lxml import etree
 
 # Get a timestamp for the update.
 time_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+
+# Cache of revisions already looked up in the git history.
+known_revisions = {}
+
+
+def revision_exists(revision, repo_path):
+    """Determine if the given revision is a commit present in the git history of the repository."""
+    if revision not in known_revisions:
+        result = subprocess.run(
+            ["git", "cat-file", "-e", revision + "^{commit}"],
+            cwd=repo_path,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        known_revisions[revision] = result.returncode == 0
+    return known_revisions[revision]
+
+
+def check_revisions(tree, filepath, repo_path):
+    """Report and exit if any `lastModified` revision in the file is absent from the git history."""
+    for element in tree.xpath("//lastModified[@revision]"):
+        revision = element.get("revision")
+        if revision_exists(revision, repo_path):
+            continue
+        sys.exit(
+            f'ERROR: parameter file "{filepath}" records a last modified revision, '
+            f'"{revision}", which is not present in the git history of the repository at '
+            f'"{repo_path}".\n'
+            "       Migration can not determine which migrations to apply without this "
+            "revision. Possible causes are:\n"
+            "         * the repository is a shallow clone (try `git fetch --unshallow`);\n"
+            "         * the revision exists only in a branch or fork which has not been "
+            "fetched (try `git fetch --all`);\n"
+            "         * the revision was removed from the history by a rebase or force-push, "
+            "or is simply invalid.\n"
+            "       If the revision is genuinely unavailable, edit the `lastModified` element "
+            "in the parameter file to reference a valid ancestor commit."
+        )
 
 # Migrate all files.
 parameter_paths = ["parameters", "constraints", "testSuite"]
@@ -58,19 +97,30 @@ for base_path in parameter_paths:
                     "to the Galacticus executable directory before running "
                     "migrateAllParameterFiles.py."
                 )
+            # Ensure that any revision recorded in the file is known to git, so that migration can
+            # determine the ancestry of the file.
+            check_revisions(tree, filepath, exec_path)
             tmp_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, dir=Path(filepath).parent)
-            subprocess.run(
-                [
-                    "./scripts/aux/parametersMigrate.py",
-                    filepath,
-                    tmp_file.name,
-                    "--ignoreWhiteSpaceChanges", "yes",
-                    "--validate", "no",
-                    "--timeStamp", time_stamp,
-                ],
-                cwd=exec_path,
-                check=True,
-            )
+            try:
+                subprocess.run(
+                    [
+                        "./scripts/aux/parametersMigrate.py",
+                        filepath,
+                        tmp_file.name,
+                        "--ignoreWhiteSpaceChanges", "yes",
+                        "--validate", "no",
+                        "--timeStamp", time_stamp,
+                    ],
+                    cwd=exec_path,
+                    check=True,
+                )
+            except subprocess.CalledProcessError as e:
+                os.unlink(tmp_file.name)
+                sys.exit(
+                    f'ERROR: migration of parameter file "{filepath}" failed '
+                    f"(parametersMigrate.py exited with status {e.returncode}) - see the output "
+                    "above for details."
+                )
             os.replace(tmp_file.name, filepath)
 
 # Reset an outdated revision in test suite parameter files that explicitly probe this issue.
