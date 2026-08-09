@@ -130,6 +130,28 @@ and can report the inclusive share of allocations attributable to a target regex
 ./allocationProfiler/runAllocProf.sh <program> [args...]
 ```
 
+### `stellarYields/`
+
+Converters that turn published stellar nucleosynthesis yield tables into the XML
+formats Galacticus reads, writing them into the datasets repository. These let
+alternative yield sets be added -- and regenerated -- reproducibly: every file
+written records its science source, the transcription source where the numbers
+came from a redistribution rather than the paper, the retrieval date, the exact
+input files, and the script that produced it. The yield files previously shipped
+in the datasets repository were built by hand with no such record.
+
+A shared module, `stellarYields/galacticusYieldTables.py`, supplies the writers
+for both formats (per-star stellar properties, and Type Ia supernova yields), the
+element/atomic-number lookup taken from Galacticus' own atomic data file, and the
+provenance record. See `stellarYields/ReadMe.md` for the format conventions --
+notably that stellar-properties yields are *net* (and may be negative) while the
+Type Ia reader sums every isotope present, so those files must contain metals
+only.
+
+```
+./stellarYields/convertIwamoto1999.py [--models W7 WDD2 ...]
+```
+
 ## License
 
 The tools in this repository are released under the MIT License -- see
