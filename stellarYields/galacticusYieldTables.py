@@ -118,6 +118,12 @@ class Provenance:
         # The sequence "--" is illegal inside an XML comment, so neutralize any that appear in the content.
         return "\n" + "\n".join(line.replace('--', '- -') for line in lines) + "\n"
 
+# Format a value for output. `repr` gives the shortest decimal string which reads back as exactly the same
+# double, so values are never silently degraded -- which matters when an existing table is being restructured
+# rather than converted, where any loss of precision would be a corruption of the source data.
+def formatValue(value):
+    return repr(float(value))
+
 # Serialize an ElementTree root, with a leading provenance comment, as an indented XML file.
 def _write(root, provenance, fileName):
     text     = ET.tostring(root, encoding='unicode')
@@ -149,7 +155,7 @@ def writeSupernovaeTypeIaYields(fileName, isotopes, description, source, url, pr
         ET.SubElement(node, 'name'        ).text = f"{isotope['massNumber']}{isotope['element']}"
         ET.SubElement(node, 'atomicMass'  ).text = f"{isotope['massNumber']}"
         ET.SubElement(node, 'atomicNumber').text = f"{isotope['atomicNumber']}"
-        ET.SubElement(node, 'yield'       ).text = f"{isotope['yield']:.6e}"
+        ET.SubElement(node, 'yield'       ).text = formatValue(isotope['yield'])
     return _write(root, provenance, fileName)
 
 def writeStellarProperties(fileName, stars, source, url, provenance, fileFormat=1):
@@ -166,11 +172,11 @@ def writeStellarProperties(fileName, stars, source, url, provenance, fileFormat=
         if 'initialMass' not in star or 'metallicity' not in star:
             raise ValueError("every star must have an initial mass and a metallicity")
         node = ET.SubElement(root, 'star')
-        ET.SubElement(node, 'initialMass').text = f"{star['initialMass']:.6g}"
-        ET.SubElement(node, 'metallicity').text = f"{star['metallicity']:.6g}"
+        ET.SubElement(node, 'initialMass').text = formatValue(star['initialMass'])
+        ET.SubElement(node, 'metallicity').text = formatValue(star['metallicity'])
         for name in ('lifetime', 'ejectedMass', 'metalYieldMass'):
             if star.get(name) is not None:
-                ET.SubElement(node, name).text = f"{star[name]:.6e}"
+                ET.SubElement(node, name).text = formatValue(star[name])
         for element, yield_ in sorted(star.get('elementYieldMass', {}).items()):
-            ET.SubElement(node, 'elementYieldMass'+element).text = f"{yield_:.6e}"
+            ET.SubElement(node, 'elementYieldMass'+element).text = formatValue(yield_)
     return _write(root, provenance, fileName)

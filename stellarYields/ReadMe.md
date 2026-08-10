@@ -43,6 +43,62 @@ Two traps worth knowing about, both enforced by the module:
 
 ## Scripts
 
+### `convertLimongiChieffi2018.py`
+
+Converts the Limongi & Chieffi (2018; ApJS; 237; 13) massive star models — 13–120 M☉ at four metallicities
+([Fe/H] = 0, −1, −2, −3, i.e. Z = 1.345×10⁻² down to 3.24×10⁻⁵) and three initial rotation velocities — writing
+one file per explosion set and rotation velocity:
+
+```
+./convertLimongiChieffi2018.py                          # sets M and R, all three rotation velocities
+./convertLimongiChieffi2018.py --sets M --velocities 0
+```
+
+Data are assembled from two sources. ORFEO (<http://orfeo.iaps.inaf.it>) supplies the yields and remnant masses;
+the CDS copy of the paper's Table 5 (`J/ApJS/237/13`) supplies stellar lifetimes, which ORFEO does not tabulate.
+Source tables are cached under `--cache-directory` so that repeated runs do not re-download them.
+
+Four things about the source data are worth knowing, all handled by the script:
+
+- ORFEO tabulates **net** elemental yields directly (`tab_yieldsnet_ele_exp.dec`), which is already Galacticus'
+  convention — no conversion is needed.
+- Despite the `exp` in the file name, those tables are the **total** ejecta, not the explosive component alone.
+  Their gross counterparts sum to exactly the initial mass minus the remnant mass, wind included; the script
+  asserts this for every model.
+- Table 5 gives the duration of **each evolutionary phase**, so the lifetime is their sum. Models stopped early
+  pad the table to eight rows by repeating the final `PSN` row, so phases must be de-duplicated first —
+  otherwise the lifetime of the 120 M☉, [Fe/H] = −3, 300 km/s model is overstated by 35%.
+- Twelve models per set enter the (pulsational) pair instability regime, are flagged with a remnant mass of −1,
+  and had their evolution stopped early. They are excluded, and named in each file's provenance.
+
+**Explosion sets.** The four sets differ *only* in which stars explode, and this dominates the high-mass yields:
+in sets I and R everything above 25 M☉ collapses entirely, so only the wind is ejected and the net metal yield
+falls to ≈ 0 above 30 M☉, while sets F and M eject 0.07 M☉ of ⁵⁶Ni from every model. Sets M and R are converted
+by default because they bracket that uncertainty.
+
+#### Sanity check
+
+Compared with Portinari, Chiosi & Bressan (1998) at near-solar metallicity, lifetimes agree to 2–8% and ejected
+mass fractions to a few per cent across 13–120 M☉ — about what two independent stellar evolution codes should
+give. Metal yields differ more (Limongi & Chieffi are roughly 50% higher above 40 M☉), which is expected: yields
+are far more model-dependent than lifetimes.
+
+### `splitPortinariChiosiBressan1998.py`
+
+Splits the Portinari, Chiosi & Bressan (1998) file into its lifetime (0.6–120 M☉) and yield (9–120 M☉)
+components. The two are carried by disjoint `star` elements, so the split is lossless — the script checks that no
+entry carries both, and the two halves together reproduce the original exactly.
+
+```
+./splitPortinariChiosiBressan1998.py
+```
+
+This is needed because a compilation built around Limongi & Chieffi (2018) wants Portinari's *lifetimes*, which
+reach down to 0.6 M☉, but must not also take Portinari's *yields*, which would overlap the Limongi & Chieffi
+models and leave the interpolation blending two mutually inconsistent sets of stellar models over the same part
+of the (mass, metallicity) plane. The standard compilation simply includes both halves and is unaffected —
+verified by confirming that a model run is bit-identical before and after the split.
+
 ### `convertIwamoto1999.py`
 
 Converts the Iwamoto et al. (1999; ApJS; 125; 439) Type Ia supernova yields — the deflagration models `W7` and
