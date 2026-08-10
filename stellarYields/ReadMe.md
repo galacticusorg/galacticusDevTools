@@ -115,18 +115,25 @@ Gross yields are converted to net by subtracting the birth composition — the L
 used by the KEPLER progenitors, taken from the copy bundled with VICE. That it sums to X = 0.7111, Y = 0.2740,
 Z = 0.0149438 confirms the identification, and the script rejects a composition implying an implausible X.
 
-#### These files do not yet work in a model
+#### Why each model is written at two metallicities
 
-The converted data are correct — their IMF-weighted metal yield is 0.0156 against 0.0290 for Portinari, Chiosi &
-Bressan (1998), exactly as expected when roughly half the models collapse entirely, and the characteristic
-interleaved islands of explodability are reproduced (99 of 200 models eject only their wind).
+Sukhbold et al. computed at a single metallicity, and each model is written twice, at two bracketing
+metallicities with identical yields. That states explicitly that the yields do not depend on metallicity — and
+it is also what makes them usable at all.
 
-But because every model sits at a **single metallicity**, the point set handed to the irregular two-dimensional
-interpolation in `stellarAstrophysicsFile` is degenerate, and the interpolation returns unusable values. A test
-model gives 11.4× the expected metal yield when combined with Heger & Woosley (2002), zero without it, and
-crashes inside the IMF integration when the grid is thinned. Thinning not helping is the point: this is the
-single metallicity, not the grid density. Using these models needs a `stellarAstrophysics` implementation that
-interpolates in mass alone at fixed metallicity. No compilation file is shipped for them until then.
+The irregular two-dimensional interpolation in `stellarAstrophysicsFile` extrapolates badly when the requested
+metallicity lies outside the range spanned by the tabulated points *at the relevant masses*, and for a table at
+one metallicity that is almost always the case. Written at a single metallicity these models give 11.4× the
+expected metal yield when combined with Heger & Woosley (2002), zero without it, and hang the IMF integration
+when the grid is thinned — thinning not helping being the clue that the problem is the metallicity coverage, not
+the grid density. Bracketing makes every request an interpolation, and recovers the expected result: a model
+gives 0.61× the metals of the standard compilation, against ~0.6 predicted from the IMF-weighted yields.
+
+Use `--metallicity-bracket` to change the two values. They need to span any metallicity a model will reach.
+
+The converted data themselves are correct either way — the IMF-weighted metal yield is 0.0156 against 0.0290 for
+Portinari, Chiosi & Bressan (1998), exactly as expected when roughly half the models collapse entirely, and the
+interleaved islands of explodability are reproduced with 99 of 200 models ejecting only their wind.
 
 ### `splitPortinariChiosiBressan1998.py`
 

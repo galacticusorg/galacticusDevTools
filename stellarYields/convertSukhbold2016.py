@@ -18,11 +18,17 @@ from galacticusYieldTables import (AtomicData, Provenance, md5Checksum, parseIso
 # which stars explode rather than a simple mass threshold. The price is that they are computed at a *single*
 # metallicity -- Solar -- and for non-rotating progenitors only.
 #
-# THAT SINGLE METALLICITY IS THE IMPORTANT CAVEAT. Galacticus clamps a requested metallicity to the range
-# tabulated for each element, so a compilation whose only source of a given element is this one would apply
-# Solar yields for that element at every metallicity, silently. These files are therefore intended to be
-# combined, via XInclude, with a metallicity-dependent set, or used deliberately for single-metallicity
-# experiments. They also carry no lifetimes, so a lifetime source must be included too.
+# THAT SINGLE METALLICITY IS THE IMPORTANT CAVEAT, and it has to be handled explicitly. Each model is written
+# twice, at two bracketing metallicities with identical yields, which states plainly that these yields do not
+# depend on metallicity. It is also what makes them usable at all: the irregular two dimensional interpolation
+# used by the stellarAstrophysicsFile class extrapolates badly when the requested metallicity lies outside the
+# range spanned by the tabulated points at the relevant masses, and for a table at a single metallicity that is
+# almost always the case. Written at one metallicity these models return eleven times the expected metal yield,
+# or zero, or hang the initial mass function integration, depending on what they are combined with.
+#
+# The yields remain metallicity independent, which is a real limitation of the models rather than of the
+# encoding: any element supplied only by this file takes its Solar yield at every metallicity. They also carry
+# no lifetimes, so a lifetime source must be combined with them.
 #
 # Data come from the Garching core-collapse supernova archive. Three features of the yield tables are handled
 # here, each of which would otherwise corrupt the result silently:
@@ -57,6 +63,10 @@ birthURL       = ("https://raw.githubusercontent.com/giganano/VICE/"+viceRevisio
 # The 20 radioactive isotopes appended to every table, in the order in which they appear.
 radioactiveIsotopes = ["c14" , "na22", "al26", "si32", "cl36", "ar39", "k40" , "ca41", "ca45", "ti44",
                        "v49" , "mn53", "mn54", "fe55", "fe60", "co60", "ni56", "ni57", "ni59", "ni63"]
+
+# The two metallicities at which each model is written. They bracket any metallicity a model is likely to
+# request, so that interpolation never has to extrapolate in metallicity; the yields are identical at both.
+metallicityBracketDefault = (1.0e-4, 1.0e-1)
 
 # The explosion engines for which exploding-model yields are tabulated. The lowest mass models (9.0-12.0 Msun)
 # always use the Z9.6 calibration, following Sukhbold et al.
@@ -135,7 +145,8 @@ def collectModels(yieldPath, engine):
     for mass in collapsing:              models[mass] = (imploding[mass], "collapses entirely; wind only")
     return models
 
-def convert(engine, yieldPath, birthComposition, metallicity, outputDirectory, atomicData, inputs):
+def convert(engine, yieldPath, birthComposition, metallicity, outputDirectory, atomicData, inputs,
+            metallicityBracket):
     models = collectModels(yieldPath, engine)
     stars  = []
     for mass in sorted(models):
@@ -153,13 +164,15 @@ def convert(engine, yieldPath, birthComposition, metallicity, outputDirectory, a
             net = grossMass-fraction*massEjected
             if element != 'he':
                 elementYield[atomicData.shortLabel(atomicData.atomicNumber(element))] = net
-        stars.append({
-            "initialMass"      : mass,
-            "metallicity"      : metallicity,
-            "ejectedMass"      : massEjected,
-            "metalYieldMass"   : sum(elementYield.values()),
-            "elementYieldMass" : elementYield,
-        })
+        # Write the model at both bracketing metallicities, with identical yields.
+        for metallicityBracketing in metallicityBracket:
+            stars.append({
+                "initialMass"      : mass,
+                "metallicity"      : metallicityBracketing,
+                "ejectedMass"      : massEjected,
+                "metalYieldMass"   : sum(elementYield.values()),
+                "elementYieldMass" : elementYield,
+            })
     provenance = Provenance(
         scienceSource       = f"Sukhbold et al. (2016, ApJ, 821, 38), {engines[engine]}",
         scienceURL          = paperURL,
@@ -175,18 +188,16 @@ def convert(engine, yieldPath, birthComposition, metallicity, outputDirectory, a
                               "non-rotating progenitors. Galacticus clamps a requested metallicity to the range "
                               "tabulated for each element, so any element supplied only by this file will take "
                               "its Solar yield at every metallicity.",
-                              "NOT CURRENTLY USABLE IN A MODEL. Because every model here lies at one "
-                              "metallicity, the point set passed to the irregular two dimensional "
-                              "interpolation of the stellarAstrophysicsFile class is degenerate, and the "
-                              "interpolation returns unusable values: a test model returns eleven times the "
-                              "expected metal yield, or zero, or fails outright inside the initial mass "
-                              "function integration, depending on what these models are combined with. "
-                              "Thinning the grid does not help, so this is the single metallicity and not the "
-                              "grid density. The tabulated data below are correct - their initial mass "
-                              "function weighted metal yield is 0.0156, against 0.0290 for Portinari, Chiosi "
-                              "and Bressan (1998), as expected when about half the models collapse entirely - "
-                              "but using them needs a stellar astrophysics implementation that interpolates in "
-                              "mass alone at fixed metallicity.",
+                              "Each model is written twice, at two bracketing metallicities with identical "
+                              "yields. That is an explicit statement that these yields do not depend on "
+                              "metallicity, and it is also what makes them usable: the irregular two "
+                              "dimensional interpolation of the stellarAstrophysicsFile class extrapolates "
+                              "badly when the requested metallicity falls outside the range spanned by the "
+                              "tabulated points at the relevant masses, which for a table at a single "
+                              "metallicity is almost always. Written at one metallicity these models return "
+                              "eleven times the expected metal yield, or zero, or hang the initial mass "
+                              "function integration, depending on what they are combined with; bracketing "
+                              "makes every request an interpolation and recovers the expected result.",
                               "NO LIFETIMES. A source of stellar lifetimes must be combined with this file.",
                               "Yields are net elemental yields in Solar masses, and may be negative; they were "
                               "converted from the gross yields of the archive by subtracting the birth "
@@ -203,7 +214,9 @@ def convert(engine, yieldPath, birthComposition, metallicity, outputDirectory, a
         provenance = provenance,
     )
     massRange = (min(star["initialMass"] for star in stars), max(star["initialMass"] for star in stars))
-    print(f"  {engine}: {len(stars):3d} models, M = {massRange[0]}-{massRange[1]} Msun, Z = {metallicity:.7f}")
+    print(f"  {engine}: {len(stars)//len(metallicityBracket):3d} models, M = {massRange[0]}-{massRange[1]} "
+          f"Msun, computed at Z = {metallicity:.7f}, written at Z = "
+          f"{' and '.join(f'{Z:g}' for Z in metallicityBracket)}")
     print(f"    -> {fileName}")
     return fileName
 
@@ -212,6 +225,10 @@ def main():
                                                  "to Galacticus XML format.")
     parser.add_argument("--engines", nargs="+", default=sorted(engines.keys()),
                         help="explosion engines to convert (default: all)")
+    parser.add_argument("--metallicity-bracket", nargs=2, type=float, default=list(metallicityBracketDefault),
+                        dest="metallicityBracket",
+                        help="the two metallicities at which each model is written, bracketing any value a "
+                             f"model is likely to request (default: {metallicityBracketDefault})")
     parser.add_argument("--cache-directory", default="s16Data", dest="cacheDirectory",
                         help="directory in which downloaded source tables are cached")
     parser.add_argument("--output-directory", default=None, dest="outputDirectory",
@@ -241,7 +258,8 @@ def main():
 
     print(f"Writing Sukhbold et al. (2016) stellar properties to {outputDirectory}")
     for engine in arguments.engines:
-        convert(engine, yieldPath, birthComposition, metallicity, outputDirectory, atomicData, inputs)
+        convert(engine, yieldPath, birthComposition, metallicity, outputDirectory, atomicData, inputs,
+                tuple(arguments.metallicityBracket))
 
 if __name__ == "__main__":
     sys.exit(main())
