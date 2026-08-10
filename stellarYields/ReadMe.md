@@ -144,6 +144,37 @@ models and leave the interpolation blending two mutually inconsistent sets of st
 of the (mass, metallicity) plane. The standard compilation simply includes both halves and is unaffected —
 verified by confirming that a model run is bit-identical before and after the split.
 
+### `convertSeitenzahl2013.py`
+
+Converts the Seitenzahl et al. (2013; MNRAS; 429; 1156) three-dimensional delayed-detonation models — fourteen
+Chandrasekhar-mass models at Solar metallicity, spanning ignition configurations from N1 to N1600 — writing one
+file per model, plus a metallicity-dependent file:
+
+```
+./convertSeitenzahl2013.py                     # all fourteen models and the N100 sequence
+./convertSeitenzahl2013.py --no-sequence
+```
+
+The paper also post-processed the N100 model at one-half, one-tenth and one-hundredth of the canonical
+metallicity. Together with N100 itself that gives **four metallicities for one and the same explosion model**,
+which is what the metallicity-dependent format wants: the trend is not confounded by a change of explosion
+model. The script writes those four sets into a single
+`Supernovae_Type_Ia_Yields_Seitenzahl2013_N100_MetallicityDependent.xml`.
+
+**Metallicity scale.** The paper parameterizes progenitor metallicity through the ²²Ne mass fraction, adopting
+0.025 for the Solar case, and states the approximation that all metals begin as CNO and are processed to ¹⁴N and
+then ²²Ne during core helium burning. Under that assumption Z = (14/22)·X(²²Ne), which is what is used here and
+puts the Solar model at Z = 0.0159. Taking the scale from the paper's own assumption avoids imposing an
+external — and inevitably inconsistent — value of the Solar metallicity.
+
+#### Sanity check
+
+Every model totals ≈1.40 M☉, as it must when a Chandrasekhar-mass white dwarf burns essentially completely, so
+the total is *not* a useful discriminator. The physics is in the composition, and across the metallicity
+sequence it behaves exactly as the neutron excess from ²²Ne implies: nickel rises 33% and manganese 18% with
+increasing metallicity, while the alpha element calcium falls 17%, and iron, silicon and carbon stay flat. A
+conversion that leaves the composition flat across the sequence is wrong.
+
 ### `convertIwamoto1999.py`
 
 Converts the Iwamoto et al. (1999; ApJS; 125; 439) Type Ia supernova yields — the deflagration models `W7` and

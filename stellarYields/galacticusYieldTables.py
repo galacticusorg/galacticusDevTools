@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import re
+import shutil
 import hashlib
 import datetime
 import xml.etree.ElementTree as ET
@@ -124,6 +125,103 @@ class Provenance:
 def formatValue(value):
     return repr(float(value))
 
+# Reading Type Ia supernova yields transcribed by VICE (Johnson 2019; MIT licensed).
+#
+# Several of the Type Ia studies we want -- Iwamoto et al. (1999), Seitenzahl et al. (2013), Gronow et al.
+# (2021) -- published their tables in typeset form only, with no machine-readable version at CDS/VizieR. VICE
+# bundles transcriptions of all of them in a uniform layout: one directory per explosion model, holding one file
+# per element, each listing "<isotope> <yield>" records. The revision is pinned so that a regenerated table is
+# reproducible.
+viceRevision = "8d4469c618afbcc9031540445fea3140c8bb1777"
+viceBaseURL  = "https://raw.githubusercontent.com/giganano/VICE/"+viceRevision+"/vice/yields/sneia"
+viceRepoURL  = "https://github.com/giganano/VICE"
+
+# The elements for which VICE provides files. Those an explosion model does not synthesize simply contain zeros.
+viceElements = ["c" , "n" , "o" , "f" , "ne", "na", "mg", "al", "si", "p" , "s" , "cl", "ar", "k" , "ca", "sc",
+                "ti", "v" , "cr", "mn", "fe", "co", "ni", "cu", "zn", "ga", "ge", "as", "se", "br", "kr", "rb",
+                "sr", "y" , "zr", "nb", "mo", "ru", "rh", "pd", "ag", "cd", "in", "sn", "sb", "te", "i" , "xe",
+                "cs", "ba", "la", "ce", "pr", "nd", "sm", "eu", "gd", "tb", "dy", "ho", "er", "tm", "yb", "lu",
+                "hf", "ta", "w" , "re", "os", "ir", "pt", "au", "hg", "tl", "pb", "bi"]
+
+def viceSNIaPath(cacheDirectory):
+    """Download and unpack VICE at the pinned revision, returning the path to its Type Ia yield directory.
+
+    Fetching the repository archive once is far quicker than requesting each element file separately: a single
+    study can span some eighteen models of seventy-six elements, which is well over a thousand requests."""
+    import tarfile
+    import urllib.request
+    os.makedirs(cacheDirectory, exist_ok=True)
+    extracted = os.path.join(cacheDirectory, f"VICE-{viceRevision}")
+    yieldPath = os.path.join(extracted, "vice", "yields", "sneia")
+    if not os.path.isdir(yieldPath):
+        archiveName = os.path.join(cacheDirectory, f"VICE-{viceRevision}.tar.gz")
+        if not os.path.isfile(archiveName):
+            url = f"https://github.com/giganano/VICE/archive/{viceRevision}.tar.gz"
+            print(f"  downloading {url}")
+            with urllib.request.urlopen(url, timeout=600) as response, open(archiveName, 'wb') as file:
+                shutil.copyfileobj(response, file)
+        with tarfile.open(archiveName) as archive:
+            archive.extractall(cacheDirectory)
+    if not os.path.isdir(yieldPath):
+        raise RuntimeError(f"failed to locate '{yieldPath}' after unpacking VICE")
+    return yieldPath
+
+def readViceSNIaModel(study, model, atomicData, source=None, cache=None):
+    """Read one explosion model's yields, returning the list of isotope dicts used by
+    `writeSupernovaeTypeIaYields` plus a description of where the data came from.
+
+    `study` is the VICE study directory (e.g. "iwamoto99"); `model` the explosion model within it. If `source`
+    is given it is treated as a local directory laid out like VICE's, otherwise the files are downloaded from
+    the pinned revision."""
+    import urllib.request
+    import urllib.error
+    if cache is None:
+        cache = {}
+    isotopes = []
+    found    = 0
+    for element in viceElements:
+        if source is not None:
+            fileName = os.path.join(source, model, element+".dat")
+            if not os.path.isfile(fileName):
+                continue
+            text = open(fileName).read()
+        else:
+            url = f"{viceBaseURL}/{study}/{model}/{element}.dat"
+            if url in cache:
+                text = cache[url]
+            else:
+                try:
+                    with urllib.request.urlopen(url, timeout=60) as response:
+                        text = response.read().decode('utf-8')
+                except urllib.error.HTTPError as error:
+                    if error.code == 404:
+                        cache[url] = None
+                        continue
+                    raise
+                cache[url] = text
+            if text is None:
+                continue
+        found += 1
+        for line in text.splitlines():
+            line = line.strip()
+            if line == "" or line.startswith("#"):
+                continue
+            fields = line.split()
+            if len(fields) != 2:
+                raise ValueError(f"malformed record '{line}' for {study}/{model}/{element}")
+            symbol, massNumber = parseIsotope(fields[0])
+            isotopes.append({
+                "element"     : atomicData.shortLabel(atomicData.atomicNumber(symbol)),
+                "massNumber"  : massNumber,
+                "atomicNumber": atomicData.atomicNumber(symbol),
+                "yield"       : float(fields[1]),
+            })
+    if not isotopes:
+        raise RuntimeError(f"no yield data found for {study}/{model}")
+    origin = (f"{source}/{model}" if source is not None
+              else f"{viceBaseURL}/{study}/{model}/<element>.dat ({found} element files)")
+    return filterMetals(isotopes), origin
+
 # Serialize an ElementTree root, with a leading provenance comment, as an indented XML file.
 def _write(root, provenance, fileName):
     text     = ET.tostring(root, encoding='unicode')
@@ -156,6 +254,35 @@ def writeSupernovaeTypeIaYields(fileName, isotopes, description, source, url, pr
         ET.SubElement(node, 'atomicMass'  ).text = f"{isotope['massNumber']}"
         ET.SubElement(node, 'atomicNumber').text = f"{isotope['atomicNumber']}"
         ET.SubElement(node, 'yield'       ).text = formatValue(isotope['yield'])
+    return _write(root, provenance, fileName)
+
+def writeSupernovaeTypeIaYieldsMetallicityDependent(fileName, yieldSets, description, source, url, provenance):
+    """Write a Type Ia supernova yield file whose yields depend on metallicity.
+
+    `yieldSets` is a list of (metallicity, isotopes) pairs, where `isotopes` has the same form as for
+    `writeSupernovaeTypeIaYields`. Each set is wrapped in a `yieldsMetallicity` element; Galacticus interpolates
+    linearly between them, holding the yield constant beyond the tabulated range."""
+    if len(yieldSets) < 2:
+        raise ValueError("a metallicity-dependent yield file needs at least two metallicities")
+    if len({metallicity for metallicity, _ in yieldSets}) != len(yieldSets):
+        raise ValueError("repeated metallicities in yield sets")
+    root = ET.Element('supernovaeYields')
+    ET.SubElement(root, 'description').text = description
+    ET.SubElement(root, 'source'     ).text = source
+    ET.SubElement(root, 'url'        ).text = url
+    for metallicity, isotopes in sorted(yieldSets, key=lambda entry: entry[0]):
+        nonMetals = [isotope for isotope in isotopes if isotope['atomicNumber'] <= 2]
+        if nonMetals:
+            raise ValueError("hydrogen/helium isotopes must be removed before writing: "
+                             "the Galacticus reader sums all isotopes into the total metal yield")
+        container = ET.SubElement(root, 'yieldsMetallicity')
+        ET.SubElement(container, 'metallicity').text = formatValue(metallicity)
+        for isotope in sorted(isotopes, key=lambda i: (i['atomicNumber'], i['massNumber'])):
+            node = ET.SubElement(container, 'isotope')
+            ET.SubElement(node, 'name'        ).text = f"{isotope['massNumber']}{isotope['element']}"
+            ET.SubElement(node, 'atomicMass'  ).text = f"{isotope['massNumber']}"
+            ET.SubElement(node, 'atomicNumber').text = f"{isotope['atomicNumber']}"
+            ET.SubElement(node, 'yield'       ).text = formatValue(isotope['yield'])
     return _write(root, provenance, fileName)
 
 def writeStellarProperties(fileName, stars, source, url, provenance, fileFormat=1):
