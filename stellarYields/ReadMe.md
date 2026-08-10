@@ -175,6 +175,49 @@ sequence it behaves exactly as the neutron excess from ²²Ne implies: nickel ri
 increasing metallicity, while the alpha element calcium falls 17%, and iron, silicon and carbon stay flat. A
 conversion that leaves the composition flat across the sequence is wrong.
 
+### `convertGronow2021.py`
+
+Converts the Gronow et al. (2021a; A&A; 649; A155) and (2021b; A&A; 656; A94) double detonations of
+sub-Chandrasekhar mass white dwarfs — eleven core/shell mass combinations, each at four progenitor
+metallicities, so 44 models — writing one file per model plus one metallicity-dependent file per core/shell
+combination:
+
+```
+./convertGronow2021.py
+./convertGronow2021.py --solar-metallicity 0.014     # place the relative metallicities on a different scale
+./convertGronow2021.py --no-sequences
+```
+
+Model names encode core mass, shell mass and metallicity relative to Solar: `M09_05_01` is a 0.9 M☉ core with a
+0.05 M☉ helium shell at 0.1 Z☉.
+
+#### Metallicity scale
+
+These papers quote their metallicities relative to Solar and cite Asplund et al. (2009) for the Solar
+composition, whose bulk Solar metal mass fraction is Z = 0.0142. That is the value used, so the absolute scale
+is the papers' own. The four metallicities come out as Z = 0.000142, 0.00142, 0.0142 and 0.0426.
+
+Note this is deliberately **not** the Solar metallicity Galacticus itself uses (0.0188, from Allen's
+Astrophysical Quantities), nor the one used for the Seitenzahl files (0.0159, which follows from that paper's
+stated ²²Ne mass fractions). Each set of yields is placed on the scale its own authors adopted, so that the
+tabulated metallicities mean what the papers intended; the differences between those scales are real
+differences of convention between the papers, not artefacts of the conversion. Use `--solar-metallicity` to
+override; the value used is recorded in every file's provenance.
+
+A further caveat, raised in the discussion on
+[galacticusorg/galacticus#500](https://github.com/galacticusorg/galacticus/issues/500), is that the treatment of
+iron in these calculations limits how quantitatively their metallicity trends should be read. This has not been
+verified against the papers here, and is noted in the provenance so it travels with the data.
+
+#### Sanity check
+
+Total ejected metals should equal the progenitor mass, since a sub-Chandrasekhar white dwarf in these models is
+essentially fully burned and completely disrupted, leaving no remnant. Across all eleven Solar-metallicity
+models the ratio of total yield to core-plus-shell mass is 0.965–1.011 — which also confirms the model-name
+parsing. The metallicity trend carries the same neutron-excess signature as Seitenzahl but much more strongly,
+because the range reaches 3 Z☉ rather than stopping at Solar: for M10_05, nickel rises by a factor 2.8 and
+manganese 2.1 from the lowest metallicity to the highest, while calcium falls by a factor 0.8.
+
 ### `convertIwamoto1999.py`
 
 Converts the Iwamoto et al. (1999; ApJS; 125; 439) Type Ia supernova yields — the deflagration models `W7` and
