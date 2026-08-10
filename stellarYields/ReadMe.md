@@ -83,6 +83,51 @@ mass fractions to a few per cent across 13–120 M☉ — about what two indepen
 give. Metal yields differ more (Limongi & Chieffi are roughly 50% higher above 40 M☉), which is expected: yields
 are far more model-dependent than lifetimes.
 
+### `convertSukhbold2016.py`
+
+Converts the Sukhbold et al. (2016; ApJ; 821; 38) core-collapse supernova models — 200 models spanning
+9–120 M☉ on a grid far denser than any alternative (0.1 M☉ steps between 13 and 27 M☉), with a physically
+motivated prescription for which stars explode — writing one file per explosion engine:
+
+```
+./convertSukhbold2016.py                    # W18 and N20 engines
+./convertSukhbold2016.py --engines W18
+```
+
+Each engine's 200-model set is assembled from three directories in the Garching archive: the Z9.6 calibration
+for 9.0–12.0 M☉, that engine's exploding models above, and — for the masses that do *not* explode under it — the
+wind-only imploding models. Those are tabulated only for W18, but a star that collapses entirely ejects only its
+wind, which is set by the progenitor's mass loss and not by the engine, so the same tables apply to N20.
+
+Three features of the source tables would each corrupt the result silently, and are handled:
+
+- Each table ends with a block of **20 radioactive isotopes** which is *supplementary* — the stable block above
+  already contains their decay products, so summing the whole file double-counts. This is checkable directly:
+  for the 20.1 M☉ W18 model the ejected `fe56` is 0.106 M☉, far above the ~0.018 M☉ expected if unprocessed, and
+  consistent with the birth abundance plus the 0.0906 M☉ of `ni56` listed separately. Note `k40` appears in
+  **both** blocks, so reading the file into a dict keyed on isotope silently loses the stable entry.
+- The **imploding models have one data column** (wind) where exploding models have two (ejecta, wind).
+- The **14.0 M☉ tables are truncated**, missing the ~95 heaviest stable isotopes. Those elements are omitted
+  rather than written as zero: a zero *gross* yield converts to a large negative *net* yield, spuriously
+  implying destruction. Galacticus pads elements missing from a star with zero net yield, which is correct.
+
+Gross yields are converted to net by subtracting the birth composition — the Lodders (2003) protosolar mixture
+used by the KEPLER progenitors, taken from the copy bundled with VICE. That it sums to X = 0.7111, Y = 0.2740,
+Z = 0.0149438 confirms the identification, and the script rejects a composition implying an implausible X.
+
+#### These files do not yet work in a model
+
+The converted data are correct — their IMF-weighted metal yield is 0.0156 against 0.0290 for Portinari, Chiosi &
+Bressan (1998), exactly as expected when roughly half the models collapse entirely, and the characteristic
+interleaved islands of explodability are reproduced (99 of 200 models eject only their wind).
+
+But because every model sits at a **single metallicity**, the point set handed to the irregular two-dimensional
+interpolation in `stellarAstrophysicsFile` is degenerate, and the interpolation returns unusable values. A test
+model gives 11.4× the expected metal yield when combined with Heger & Woosley (2002), zero without it, and
+crashes inside the IMF integration when the grid is thinned. Thinning not helping is the point: this is the
+single metallicity, not the grid density. Using these models needs a `stellarAstrophysics` implementation that
+interpolates in mass alone at fixed metallicity. No compilation file is shipped for them until then.
+
 ### `splitPortinariChiosiBressan1998.py`
 
 Splits the Portinari, Chiosi & Bressan (1998) file into its lifetime (0.6–120 M☉) and yield (9–120 M☉)
