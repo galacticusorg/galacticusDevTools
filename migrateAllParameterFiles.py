@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -61,6 +60,14 @@ excluded_paths = {
     os.path.normpath(os.path.join("constraints", "dataAnalysis")),
     os.path.normpath(os.path.join("testSuite", "outputs")),
 }
+# These test suite parameter files exist precisely to record an outdated `lastModified` revision so
+# that the test suite can probe the handling of such files. They must never be migrated - doing so
+# would apply (and, on repeated runs, re-apply) migrations to their content while leaving their
+# recorded revision outdated.
+excluded_files = {
+    os.path.normpath(os.path.join("testSuite", "parameters", "strictOutdated.xml")),
+    os.path.normpath(os.path.join("testSuite", "parameters", "unstrictOutdated.xml")),
+}
 
 for base_path in parameter_paths:
     for dirpath, dirnames, filenames in os.walk(base_path):
@@ -81,6 +88,9 @@ for base_path in parameter_paths:
             if not filename.endswith(".xml"):
                 continue
             filepath = os.path.join(dirpath, filename)
+            # Ignore certain files.
+            if os.path.normpath(filepath) in excluded_files:
+                continue
             # Parse XML and ignore any non-parameter files.
             try:
                 parser = etree.XMLParser(resolve_entities=False, no_network=True)
@@ -122,12 +132,3 @@ for base_path in parameter_paths:
                     "above for details."
                 )
             os.replace(tmp_file.name, filepath)
-
-# Reset an outdated revision in test suite parameter files that explicitly probe this issue.
-for filename in ("strictOutdated.xml", "unstrictOutdated.xml"):
-    filepath = os.path.join("testSuite", "parameters", filename)
-    with open(filepath, 'r') as f:
-        content = f.read()
-    new_content = re.sub(r'lastModified\s+revision="[a-f0-9]+"', 'lastModified revision="262562000c251ee5b935019673f606a8a8c47c10"', content)
-    with open(filepath, 'w') as f:
-        f.write(new_content)
