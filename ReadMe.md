@@ -52,6 +52,46 @@ exercise the "outdated parameter file" code paths.
 Run from the root of a Galacticus checkout with `GALACTICUS_EXEC_PATH` set to
 the Galacticus executable directory.
 
+### `namingAudit.py`
+
+Audits API naming consistency across a Galacticus checkout and writes the full
+findings to `namingAudit.json`. It reports two kinds of finding:
+
+* **Spelling** — US-spelling violations in Fortran identifiers, in documentation
+  prose (`<description>` directive elements and `!!{RST ... !!}` blocks), in
+  Python, and in parameter files. This complements the `Spell-Check-RST` CI job,
+  which covers only the generated documentation and cannot see identifiers,
+  Python, or parameter files.
+* **Structural** — class and implementation name styles, vowel-stripped
+  implementation-name abbreviations, parameter name style and word order,
+  boolean parameters that do not read as predicates, methods that express one
+  concept under two word orders, module and procedure name styles, hyphenated
+  file names, and property-extractor output names.
+
+```
+./namingAudit.py [--repo <dir>] [--catalog <file>] [--spelling] [--structural]
+```
+
+`--repo` defaults to `$GALACTICUS_EXEC_PATH`. The structural scan needs the
+parameter catalog; if it is not found, the script prints the
+`scripts/build/parameterCatalog.py` command that builds it. `--spelling` runs
+only the spelling scan, which needs no catalog and no build, and is the mode
+intended for a lint job.
+
+The conventions checked, and their deliberate exceptions (cosmological
+parameters written as symbols, fitting-formula coefficients written as paper
+symbols, `*IsFatal`/`*Only` booleans, legacy `Upper_Snake_Case` procedures), are
+documented in the *Naming conventions* section of the Galacticus developer
+guide. To keep the two consistent, the script honours `aux/words.dict` — the
+dictionary the documentation spelling builder uses — so proper names recorded
+there (people, codes, simulations) are not flagged.
+
+Findings are heuristic and meant to be reviewed rather than applied blindly. In
+particular, an adjective-first parameter name may be an established physics
+term, and an extractor which composes its dataset name from a prefix (for
+example `'darkMatterProfileDMO'//propertyName`) correctly has a capitalized name
+literal; those are reported separately rather than as defects.
+
 ### `promptCusps.py`
 
 Reference implementation used to validate Galacticus' built-in prompt-cusp
