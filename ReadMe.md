@@ -249,3 +249,63 @@ The tools in this repository are released under the MIT License -- see
 [`License.txt`](License.txt). The bundled `delta` source under
 `deltaTestCaseReducer/` retains its own BSD license, which is included
 alongside it.
+
+### `referenceKing1962.py`
+
+Computes reference values for the King (1962) satellite tidal radius, for use by the
+`tests.satellites.tidal_stripping.radius.King1962` unit test in Galacticus. Nothing is
+taken from the Galacticus implementation: the script builds NFW host and satellite
+profiles with Bryan & Norman (1998) virial radii, forms the tidal pull
+`gamma omega^2 - d^2Phi/dR^2`, and solves `G M_sat(<r_t)/r_t^3 = pull` for a set of
+orbits. It also computes the radii returned where no tidal radius exists, and checks
+itself against the Jacobi radius for point masses. Physical constants are the GSL values
+from which Galacticus builds its own, so that no difference in constants enters the
+comparison. Values are printed both in full and as Fortran-ready arrays.
+
+```
+./referenceKing1962.py
+```
+
+Requires `scipy`.
+
+### `benson2005Check.py`
+
+Checks the constants hard-coded in Galacticus' `virialOrbitBenson2005` class against the
+fitting function of Benson (2005) as it is coded there: the peak of the distribution
+used as the rejection-sampling envelope (`pMax`), the mean magnitude of the tangential
+velocity, and the root mean squared total velocity. The latter two are obtained by
+direct 2D integration over the fitting function.
+
+```
+./benson2005Check.py
+```
+
+Requires `numpy` and `scipy`.
+
+### `ccm89Check.py`
+
+Compares Galacticus' transcription of the Cardelli, Clayton & Mathis (1989) extinction
+curve (the `dustExtinctionCurveCardelli1989` class) against the independent
+implementation in the `dust_extinction` package, over the full range of validity
+(0.3 <= x < 8 inverse microns) and for several values of R_V.
+
+```
+./ccm89Check.py
+```
+
+Requires `numpy`, `astropy`, and `dust_extinction`.
+
+### `sfImpact.py`
+
+Quantifies the effect of two choices in the star formation rate surface density classes:
+the characteristic pressure in the Blitz & Rosolowsky (2006) molecular fraction (and the
+`min(R,1)` versus `R/(1+R)` forms of that fraction), and the application of the hydrogen
+mass fraction to the gas surface density in the Krumholz, McKee & Tumlinson (2009) model.
+It reports molecular fractions across a Milky Way-like exponential disk, and across a
+range of gas surface densities, for each choice.
+
+```
+./sfImpact.py
+```
+
+Requires `numpy`.
