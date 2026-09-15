@@ -414,3 +414,21 @@ range of gas surface densities, for each choice.
 ```
 
 Requires `numpy`.
+
+### `referenceMolecularFractions.py`
+
+Independent reference values for the molecular fraction and star formation rate surface
+density laws of Blitz & Rosolowsky (2006) and Krumholz, McKee & Tumlinson (2009), used by
+`tests.star_formation.molecular_fractions.exe`: the midplane pressure of a disk of locally
+isothermal gas and stars, the molecular-to-atomic ratio and molecular fraction of eqns.
+(11) and (21) of the former, the molecular fraction of eqn. (2) of the latter together
+with the McKee & Krumholz (2010) fast approximation, and the rate surface density of each.
+Every expression is written from the papers; only the hydrogen mass fraction and the Solar
+metallicity, which are conventions of the code rather than of either paper, are taken from
+Galacticus.
+
+```
+./referenceMolecularFractions.py
+```
+
+Requires nothing beyond the standard library.
