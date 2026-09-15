@@ -243,6 +243,111 @@ only.
 ./stellarYields/convertIwamoto1999.py [--models W7 WDD2 ...]
 ```
 
+### `blackHolePhysics.py`
+
+Independent reference values for Galacticus' black hole physics, used by
+`tests.black_hole_physics.exe`. Computes Kerr metric innermost stable circular orbit
+quantities from Bardeen, Press & Teukolsky (1972), the frame-dragging frequency,
+Shakura-Sunyaev radiative efficiencies and spin-up rates, Meier (2001) jet powers,
+Bondi-Hoyle-Lyttleton accretion, and Rezzolla et al. (2008) binary merger remnant spins
+and masses. Written from the published expressions rather than from the Galacticus
+implementation.
+
+```
+./blackHolePhysics.py
+```
+
+Requires `numpy` and `scipy`.
+
+### `starFormationFeedbackPhysics.py`
+
+Independent reference values for star formation rate surface densities and stellar
+feedback outflow rates, used by `tests.star_formation_feedback_physics.exe`. Covers the
+Kennicutt-Schmidt law with and without a critical surface density, the disk-integrated
+star formation rate for an exponential disk in closed form, dynamical-time star formation
+timescales, and the power-law and rate-limited outflow classes.
+
+```
+./starFormationFeedbackPhysics.py
+```
+
+Requires `numpy` and `scipy`.
+
+### `mergersInstabilitiesPhysics.py`
+
+Independent reference values for merger and instability physics, used by
+`tests.mergers_instabilities_physics.exe`. Covers the Efstathiou, Lake & Negroponte (1982)
+bar instability criterion and timescale, and the Cole et al. (2000) merger remnant size
+algorithm including its dark matter term.
+
+```
+./mergersInstabilitiesPhysics.py
+```
+
+Requires `numpy` and `scipy`.
+
+### `massDefinitionsOutputTimes.py`
+
+Independent reference values for halo mass definitions and output time conversions, used
+by `tests.mass_definitions_output_times.exe`. Uses `colossus` and `astropy` for virial
+density contrasts, conversions of halo masses between contrast definitions, and
+conversions between redshift and cosmic time. Note that Galacticus' density contrasts are
+relative to the *mean* matter density while colossus' are relative to the *critical*
+density, and that `cosmologyFunctionsMatterLambda` contains no radiation term, so both
+reference codes are given `Tcmb0=0`.
+
+```
+./massDefinitionsOutputTimes.py
+```
+
+Requires `numpy`, `scipy`, `astropy` and `colossus`.
+
+### `coolingChain.py`
+
+Independent reference values for the Galacticus cooling chain, used by
+`tests.cooling_chain.exe`: mean density, virial radius, velocity, temperature and
+dynamical time, the beta-profile density normalization, the Cloudy cooling function and
+electron density tables, the cooling time, the cooling radius, its growth rate, and the
+mass cooling rate. The two Cloudy HDF5 files are read directly, being data rather than
+code, but the interpolation scheme applied to them is reimplemented from the documented
+conventions, since that scheme is itself part of what is checked.
+
+```
+./coolingChain.py
+```
+
+Requires `numpy`, `scipy` and `h5py`.
+
+### `bett2007SpinDistribution.py`
+
+Independent reference values for the halo spin distribution of Bett et al. (2007), used by
+`tests.bett2007_spin_distribution.exe`. Substituting `x = alpha (lambda/lambda_0)^(3/alpha)`
+turns the fitting function into a gamma distribution of shape `alpha`, giving the
+normalization `3 alpha^(alpha-1)/Gamma(alpha)` and the moments in closed form; the script
+checks these against direct quadrature and confirms that the distribution integrates to
+unity.
+
+```
+./bett2007SpinDistribution.py
+```
+
+Requires `numpy` and `scipy`.
+
+### `chabrier2001IMF.py`
+
+Independent reference values for the Chabrier (2001) stellar initial mass function, used by
+`tests.initial_mass_functions.exe`. Derives the normalization of each branch in closed form
+rather than transcribing the expressions used by Galacticus - the log-normal branch's mass
+integral reduces, on completing the square, to an expression in error functions - and
+measures the continuity of the two branches as a function of the transition mass. That last
+check found a defect in the Galacticus implementation, since fixed.
+
+```
+./chabrier2001IMF.py
+```
+
+Requires `numpy` and `scipy`.
+
 ## License
 
 The tools in this repository are released under the MIT License -- see
