@@ -373,6 +373,33 @@ the reference values as Fortran array initializers.
 
 Requires `numpy` and `scipy`.
 
+### `satelliteOrbitRates.py`
+
+Independent reference values for the two rates which drive satellite orbital evolution: the
+Chandrasekhar (1943) dynamical friction acceleration and the Zentner et al. (2005) tidal mass
+loss rate, the latter via the King (1962) tidal radius. Evaluated pointwise over a grid of
+phase-space configurations, for plan item 9. The host's velocity dispersion, which the
+friction term needs, is the isotropic Jeans solution for an NFW profile.
+
+The rates are covered here rather than an integrated orbit because a comparison of decay time
+and bound mass alone cannot distinguish a wrong rate from a wrongly assembled one; the
+assembly into the orbital ODE is a separate check. Note that the King (1962) tidal radius is
+the derivation session's item and has its own reference in `referenceKing1962.py` - it is
+reimplemented here only because the mass loss rate needs it.
+
+`--verify` runs internal self-consistency checks (friction opposes motion, mass loss is never
+positive, the NFW normalization recovers the total mass at the virial radius, and the Jeans
+dispersion peaks in the halo's interior). `--fortran` emits the reference values as Fortran
+array initializers.
+
+```
+./satelliteOrbitRates.py
+./satelliteOrbitRates.py --verify
+./satelliteOrbitRates.py --fortran
+```
+
+Requires `numpy` and `scipy`.
+
 ## License
 
 The tools in this repository are released under the MIT License -- see
