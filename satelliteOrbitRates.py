@@ -65,6 +65,31 @@ from scipy.special import erf
 # Newton's constant in Galacticus' internal unit system: Msun, Mpc, km/s.
 gravitationalConstant = 4.3011827419096073e-9
 
+# Conversion from km/s/Mpc to Gyr^-1. Galacticus applies this to both rates so that they are per unit
+# time for the ODE solver; the physics is done in km/s and Mpc throughout and only the final result is
+# converted. This is the `kilo * gigaYear / megaParsec` factor which appears in the Fortran.
+kilo = 1.0e3
+gigaYear = 3.155695200e16
+megaParsec = 3.0856775809623245e22
+toPerGigaYear = kilo * gigaYear / megaParsec
+
+# Cosmology: Planck 2018, matching the companion test's parameter file.
+omegaMatter = 0.3153
+omegaBaryon = 0.0493
+
+# The fraction of a halo's mass held by its dark matter profile.
+#
+# This is not a modelling choice here; it is a convention of the code which had to be measured. Galacticus' dark
+# matter profile is normalized to `basic%mass() x (1 - Omega_b/Omega_M)`, not to the basic mass. Comparing the
+# density and enclosed mass the code reports against this script at fixed radius gave a constant ratio of 1.18530
+# at every radius, which is 1 / 0.84364 = 1 / (1 - 0.0493/0.3153).
+#
+# The satellite's *bound* mass follows a different convention: `satelliteMassBoundInitializorBasicMass` sets it
+# equal to the node's basic mass, i.e. the total. So the rates below mix the two - the bound mass is a total while
+# every mass read from a profile is dark only. That mixing is reproduced here deliberately, because it is what the
+# code does; see the notes on the suppression factor and on `rateMassLossZentner2005` for what it implies.
+fractionDarkMatter = 1.0 - omegaBaryon / omegaMatter
+
 
 class ProfileNFW:
     """An NFW profile normalized to a given mass within a given virial radius."""
@@ -126,7 +151,7 @@ class ProfileNFW:
 
 def accelerationDynamicalFriction(host, satellite, massSatellite, position, velocity, logarithmCoulomb,
                                   suppressExtendedMass=True):
-    """Chandrasekhar (1943) dynamical friction acceleration, in (km/s)^2/Mpc.
+    """Chandrasekhar (1943) dynamical friction acceleration, in km/s/Gyr.
 
         a = 4 pi G^2 M ln(Lambda) * I,   I = -rho(r) v / |v|^3 * [erf(X) - 2 X exp(-X^2)/sqrt(pi)]
 
@@ -146,8 +171,12 @@ def accelerationDynamicalFriction(host, satellite, massSatellite, position, velo
     if x <= 10.0:
         integral = integral * (erf(x) - 2.0 * x * np.exp(-(x**2)) / np.sqrt(np.pi))
     if suppressExtendedMass:
+        # Note that `satellite.massEnclosed` is a dark matter mass while `massSatellite` is the total bound mass, so
+        # this factor saturates at `fractionDarkMatter`, never at one: even a satellite lying entirely inside the
+        # radius sampled is suppressed by about 16%. That is what the code computes.
         integral = integral * min(1.0, satellite.massEnclosed(radius) / massSatellite)
-    return 4.0 * np.pi * gravitationalConstant**2 * logarithmCoulomb * massSatellite * integral
+    # The physics above is in (km/s)^2/Mpc; convert to km/s/Gyr as Galacticus does.
+    return 4.0 * np.pi * gravitationalConstant**2 * logarithmCoulomb * massSatellite * integral * toPerGigaYear
 
 
 def radiusTidalKing1962(host, satellite, massSatellite, position, velocity, efficiencyCentrifugal=1.0):
@@ -187,12 +216,6 @@ def rateMassLossZentner2005(host, satellite, massSatellite, position, velocity, 
     The timescale is a dynamical time at the tidal radius when `useDynamicalTimeScale` is set, and the
     orbital period otherwise. Frequencies are converted to Gyr^-1 only at the end, since the rate is
     the one quantity here which is per unit time rather than per unit length."""
-    # Conversion from km/s/Mpc to Gyr^-1.
-    kilo = 1.0e3
-    gigaYear = 3.155695200e16
-    megaParsec = 3.0856775809623245e22
-    toPerGigaYear = kilo * gigaYear / megaParsec
-
     radius = np.linalg.norm(position)
     frequencyAngular = np.linalg.norm(np.cross(position, velocity)) / radius**2 * toPerGigaYear
     frequencyRadial = abs(np.dot(position, velocity)) / radius**2 * toPerGigaYear
@@ -215,6 +238,11 @@ def rateMassLossZentner2005(host, satellite, massSatellite, position, velocity, 
     else:
         timescaleMassLoss = periodOrbital
 
+    # The mass outside the tidal radius subtracts a *dark* enclosed mass from a *total* bound mass. One consequence
+    # is worth stating: when the tidal radius reaches the satellite's virial radius, `massEnclosedTidalRadius` is
+    # `fractionDarkMatter` times the bound mass rather than equal to it, so `massOuter` is about 16% of the bound
+    # mass and the rate is non-zero even for a satellite nothing is stripping. This script reproduces that rather
+    # than correcting it, since its purpose is to verify what the code computes.
     massOuter = max(massSatellite - massEnclosedTidalRadius, 0.0)
     return -efficiency * massOuter / timescaleMassLoss
 
@@ -270,7 +298,7 @@ configurations = [
 ]
 
 
-def radiusVirial(mass, densityContrast=200.0, omegaMatter=0.3153, hubbleConstant=67.36):
+def radiusVirial(mass, densityContrast=200.0, hubbleConstant=67.36):
     """Virial radius for a fixed contrast relative to the mean matter density, matching the companion
     test's parameter file."""
     densityCritical = 3.0 * hubbleConstant**2 / (8.0 * np.pi * gravitationalConstant)
@@ -283,12 +311,16 @@ def grid():
     radiusVirialHost = radiusVirial(massHaloHost)
     velocityVirialHost = np.sqrt(gravitationalConstant * massHaloHost / radiusVirialHost)
     timescaleDynamicalHost = radiusVirialHost / velocityVirialHost * 3.0856775809623245e22 / 1.0e3 / 3.155695200e16
-    host = ProfileNFW(massHaloHost, radiusVirialHost, concentrationHost)
+    # Both profiles hold only the dark matter fraction of their halo's mass; see the note on `fractionDarkMatter`.
+    host = ProfileNFW(massHaloHost * fractionDarkMatter, radiusVirialHost, concentrationHost)
 
     results = []
     for fractionRadius, fractionTangential, fractionRadial, massSatellite, concentrationSatellite_ in configurations:
-        # The satellite's bound mass is the total mass of its own profile, so the two stay consistent.
-        satellite = ProfileNFW(massSatellite, radiusVirial(massSatellite), concentrationSatellite_)
+        # The satellite's profile holds the dark fraction of its mass, while the bound mass passed to the rates is
+        # the total, as `satelliteMassBoundInitializorBasicMass` sets it.
+        satellite = ProfileNFW(
+            massSatellite * fractionDarkMatter, radiusVirial(massSatellite), concentrationSatellite_
+        )
         position = np.array([fractionRadius * radiusVirialHost, 0.0, 0.0])
         velocity = np.array([fractionRadial * velocityVirialHost, fractionTangential * velocityVirialHost, 0.0])
         acceleration = accelerationDynamicalFriction(
@@ -381,6 +413,7 @@ def main():
         emit("velocityRadial", [r["velocityRadial"] for r in results])
         emit("velocityTangential", [r["velocityTangential"] for r in results])
         emit("massSatellite", [r["massSatellite"] for r in results])
+        emit("concentrationSatellite", [r["concentrationSatellite"] for r in results])
         emit("accelerationXReference", [r["accelerationX"] for r in results])
         emit("accelerationYReference", [r["accelerationY"] for r in results])
         emit("radiusTidalReference", [r["radiusTidal"] for r in results])
