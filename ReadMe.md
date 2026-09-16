@@ -400,6 +400,27 @@ array initializers.
 
 Requires `numpy` and `scipy`.
 
+### `satelliteOrbitEvolution.py`
+
+Independent reference for the orbital evolution of a single satellite in a static host potential, used
+by `testSuite/test-satellite-orbit-evolution.py`. The companion to `satelliteOrbitRates.py`: that
+script verifies the two rates driving satellite evolution pointwise, this one integrates them, so that
+their *assembly* into the orbital differential equations is checked too. A pointwise comparison cannot
+catch a rate which is correct but enters the equations of motion with the wrong sign, factor or units,
+and a comparison of an integrated trajectory alone cannot distinguish such a mistake from a wrong rate.
+
+The rate functions are imported from `satelliteOrbitRates.py` rather than restated, so the two
+references cannot drift apart. `--converge` re-integrates at a looser tolerance and reports the shift,
+bounding the reference's own error; `--fortran` emits the trajectory for pasting into the test.
+
+```
+./satelliteOrbitEvolution.py
+./satelliteOrbitEvolution.py --converge
+./satelliteOrbitEvolution.py --fortran
+```
+
+Requires `numpy` and `scipy`.
+
 ## License
 
 The tools in this repository are released under the MIT License -- see
