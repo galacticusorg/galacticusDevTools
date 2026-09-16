@@ -348,6 +348,31 @@ check found a defect in the Galacticus implementation, since fixed.
 
 Requires `numpy` and `scipy`.
 
+### `galacticStructureEquilibrium.py`
+
+Independent reference values for the equilibrium galactic structure solver, used by
+`tests.galactic_structure_equilibrium.exe`. Solves for the equilibrium radii of an exponential
+disk and a Hernquist spheroid in an NFW halo which contracts adiabatically in response to them
+(Gnedin et al. 2004), by a plain two-level root find - outer for the coupled radii, inner for
+the initial radius at each final radius - where Galacticus reaches the same fixed point by
+iteration with oscillation-breaking heuristics. Agreement is therefore a statement about the
+solution rather than the algorithm. The module header lists the conventions deliberately taken
+from Galacticus, chiefly that the specific angular momentum handed to the solver is half of
+J/M, not J/M.
+
+`--tolerance` re-solves every model with the Bessel factor of the disk rotation curve replaced
+by the tabulated-and-interpolated form Galacticus uses, and reports how far the radii move;
+that measurement, 1.7e-5, is what justifies the companion test's tolerance. `--fortran` emits
+the reference values as Fortran array initializers.
+
+```
+./galacticStructureEquilibrium.py
+./galacticStructureEquilibrium.py --tolerance
+./galacticStructureEquilibrium.py --fortran
+```
+
+Requires `numpy` and `scipy`.
+
 ## License
 
 The tools in this repository are released under the MIT License -- see
