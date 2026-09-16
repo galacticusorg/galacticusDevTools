@@ -502,3 +502,24 @@ the values are exact.
 ```
 
 Requires `numpy` and `scipy`.
+
+### `halofitDecompose.py`
+
+An independent implementation of the halofit algorithm of Smith et al. (2003), used to
+supply reference values for the quasi-linear and halo terms separately in Galacticus'
+`tests.power_spectrum.nonlinear_Smith2003.exe`. CAMB reports only the total nonlinear
+power, and checking the total alone is weak: the two terms overlap, so an error in one is
+diluted in the sum — a ten per cent error in the coefficient of the quasi-linear damping
+moves the total by one per cent but moves the quasi-linear term by up to thirteen. The
+Appendix C coefficients are taken from CAMB's `fortran/halofit.f90`, its
+`halofit_original` branch. The script reports the nonlinear scale, effective index and
+curvature it finds, and the accuracy with which it reproduces CAMB's own total, which is
+what licenses using its decomposition.
+
+```
+camb halofit.ini   # do_nonlinear = 1, halofit_version = 1
+camb linear.ini    # do_nonlinear = 0
+./halofitDecompose.py
+```
+
+Requires `numpy` and `scipy`, and the two CAMB outputs in the working directory.
