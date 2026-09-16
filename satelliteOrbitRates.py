@@ -79,15 +79,20 @@ omegaBaryon = 0.0493
 
 # The fraction of a halo's mass held by its dark matter profile.
 #
-# This is not a modelling choice here; it is a convention of the code which had to be measured. Galacticus' dark
-# matter profile is normalized to `basic%mass() x (1 - Omega_b/Omega_M)`, not to the basic mass. Comparing the
-# density and enclosed mass the code reports against this script at fixed radius gave a constant ratio of 1.18530
-# at every radius, which is 1 / 0.84364 = 1 / (1 - 0.0493/0.3153).
+# This is not a modelling choice here; it is a convention of the code which had to be measured. Galacticus offers
+# two normalizations of the same halo, and which one a calculation reaches for matters:
 #
-# The satellite's *bound* mass follows a different convention: `satelliteMassBoundInitializorBasicMass` sets it
-# equal to the node's basic mass, i.e. the total. So the rates below mix the two - the bound mass is a total while
-# every mass read from a profile is dark only. That mixing is reproduced here deliberately, because it is what the
-# code does; see the notes on the suppression factor and on `rateMassLossZentner2005` for what it implies.
+#   * `node%massDistribution()`, and `(componentTypeDarkHalo, massTypeDark)`, are normalized to
+#     `basic%mass() x (1 - Omega_b/Omega_M)` - the dark matter actually present once baryons are removed.
+#   * `(componentTypeDarkMatterOnly, massTypeDark)` is normalized to the full `basic%mass()`.
+#
+# Measured directly for a 10^10 Msun satellite: 8.4364e9, 8.4364e9 and 1.0000e10 respectively, against a bound
+# mass of 1.0000e10.
+#
+# The satellite's *bound* mass is a total: `satelliteMassBoundInitializorBasicMass` sets it to the basic mass. So
+# any expression combining a bound mass with a profile mass must use the dark-matter-only profile, or it mixes the
+# two normalizations. Two places in the code did mix them, and both are now fixed; this script follows the fixed
+# code. Which profile each quantity below uses is stated at its call site, because it is not guessable.
 fractionDarkMatter = 1.0 - omegaBaryon / omegaMatter
 
 
@@ -171,9 +176,10 @@ def accelerationDynamicalFriction(host, satellite, massSatellite, position, velo
     if x <= 10.0:
         integral = integral * (erf(x) - 2.0 * x * np.exp(-(x**2)) / np.sqrt(np.pi))
     if suppressExtendedMass:
-        # Note that `satellite.massEnclosed` is a dark matter mass while `massSatellite` is the total bound mass, so
-        # this factor saturates at `fractionDarkMatter`, never at one: even a satellite lying entirely inside the
-        # radius sampled is suppressed by about 16%. That is what the code computes.
+        # `satellite` here is the dark-matter-only profile, normalized to the same total mass as `massSatellite`, so
+        # this factor reaches unity for a satellite lying well inside the radius sampled. Before the fix in
+        # `Chandrasekhar1943.F90` the code used the baryon-corrected profile here and the factor saturated at
+        # `fractionDarkMatter` instead, suppressing every satellite by the baryon fraction however compact it was.
         integral = integral * min(1.0, satellite.massEnclosed(radius) / massSatellite)
     # The physics above is in (km/s)^2/Mpc; convert to km/s/Gyr as Galacticus does.
     return 4.0 * np.pi * gravitationalConstant**2 * logarithmCoulomb * massSatellite * integral * toPerGigaYear
@@ -207,8 +213,9 @@ def radiusTidalKing1962(host, satellite, massSatellite, position, velocity, effi
     return brentq(root, radiusLower, radiusUpper, xtol=1.0e-18, rtol=1.0e-14)
 
 
-def rateMassLossZentner2005(host, satellite, massSatellite, position, velocity, timescaleDynamicalHost,
-                            efficiency=2.5, useDynamicalTimeScale=True, efficiencyCentrifugal=1.0):
+def rateMassLossZentner2005(host, satelliteBaryonCorrected, satelliteDarkMatterOnly, massSatellite, position, velocity,
+                            timescaleDynamicalHost, efficiency=2.5, useDynamicalTimeScale=True,
+                            efficiencyCentrifugal=1.0):
     """Zentner et al. (2005) tidal mass loss rate, in Msun/Gyr.
 
         dM/dt = - efficiency * M_outside_tidal_radius / timescale
@@ -225,8 +232,15 @@ def rateMassLossZentner2005(host, satellite, massSatellite, position, velocity, 
     else:
         periodOrbital = timescaleDynamicalHost
 
-    radiusTidal = radiusTidalKing1962(host, satellite, massSatellite, position, velocity, efficiencyCentrifugal)
-    massEnclosedTidalRadius = max(0.0, satellite.massEnclosed(radiusTidal)) if radiusTidal > 0.0 else 0.0
+    # The tidal radius is where the satellite's *physical* mean density falls to the tidal density, so King (1962)
+    # uses the baryon-corrected profile; `Zentner2005.F90` then reads the enclosed mass from the dark-matter-only
+    # profile, to match the bound mass. That asymmetry is the code's, and is flagged in the module header.
+    radiusTidal = radiusTidalKing1962(
+        host, satelliteBaryonCorrected, massSatellite, position, velocity, efficiencyCentrifugal
+    )
+    massEnclosedTidalRadius = (
+        max(0.0, satelliteDarkMatterOnly.massEnclosed(radiusTidal)) if radiusTidal > 0.0 else 0.0
+    )
 
     if useDynamicalTimeScale and massEnclosedTidalRadius > 0.0:
         timescaleMassLoss = (
@@ -238,11 +252,10 @@ def rateMassLossZentner2005(host, satellite, massSatellite, position, velocity, 
     else:
         timescaleMassLoss = periodOrbital
 
-    # The mass outside the tidal radius subtracts a *dark* enclosed mass from a *total* bound mass. One consequence
-    # is worth stating: when the tidal radius reaches the satellite's virial radius, `massEnclosedTidalRadius` is
-    # `fractionDarkMatter` times the bound mass rather than equal to it, so `massOuter` is about 16% of the bound
-    # mass and the rate is non-zero even for a satellite nothing is stripping. This script reproduces that rather
-    # than correcting it, since its purpose is to verify what the code computes.
+    # Both terms are now total masses: `satelliteDarkMatterOnly` is normalized to the same mass as the bound mass, so
+    # a satellite whose tidal radius reaches its virial radius has nothing outside it and loses no mass. Before the
+    # fix in `Zentner2005.F90` the enclosed mass came from the baryon-corrected profile, leaving such a satellite
+    # with `massOuter` equal to the baryon fraction of its bound mass and so losing mass with nothing stripping it.
     massOuter = max(massSatellite - massEnclosedTidalRadius, 0.0)
     return -efficiency * massOuter / timescaleMassLoss
 
@@ -318,17 +331,23 @@ def grid():
     for fractionRadius, fractionTangential, fractionRadial, massSatellite, concentrationSatellite_ in configurations:
         # The satellite's profile holds the dark fraction of its mass, while the bound mass passed to the rates is
         # the total, as `satelliteMassBoundInitializorBasicMass` sets it.
-        satellite = ProfileNFW(
+        # Two normalizations of the same satellite, because the code reaches for different ones in different places;
+        # see the note on `fractionDarkMatter`.
+        satelliteBaryonCorrected = ProfileNFW(
             massSatellite * fractionDarkMatter, radiusVirial(massSatellite), concentrationSatellite_
+        )
+        satelliteDarkMatterOnly = ProfileNFW(
+            massSatellite                     , radiusVirial(massSatellite), concentrationSatellite_
         )
         position = np.array([fractionRadius * radiusVirialHost, 0.0, 0.0])
         velocity = np.array([fractionRadial * velocityVirialHost, fractionTangential * velocityVirialHost, 0.0])
         acceleration = accelerationDynamicalFriction(
-            host, satellite, massSatellite, position, velocity, logarithmCoulomb
+            host, satelliteDarkMatterOnly, massSatellite, position, velocity, logarithmCoulomb
         )
-        radiusTidal = radiusTidalKing1962(host, satellite, massSatellite, position, velocity)
+        radiusTidal = radiusTidalKing1962(host, satelliteBaryonCorrected, massSatellite, position, velocity)
         rateMassLoss = rateMassLossZentner2005(
-            host, satellite, massSatellite, position, velocity, timescaleDynamicalHost, efficiency=efficiencyStripping
+            host, satelliteBaryonCorrected, satelliteDarkMatterOnly, massSatellite, position, velocity,
+            timescaleDynamicalHost, efficiency=efficiencyStripping
         )
         results.append(
             {
