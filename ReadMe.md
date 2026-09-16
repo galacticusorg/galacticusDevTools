@@ -432,3 +432,21 @@ Galacticus.
 ```
 
 Requires nothing beyond the standard library.
+
+### `referenceVirialOrbits.py`
+
+Independent reference values for the virial orbit distributions of Benson (2005) and Jiang
+et al. (2015), used by `tests.satellites.virial_orbits.exe`: the mean tangential velocity
+and root mean squared total velocity of the Benson (2005) joint velocity distribution, and
+the same two moments of the Jiang et al. (2015) Voigt profile combined with the closed-form
+mean tangential velocity implied by their radial velocity distribution, in each of the nine
+host mass by mass ratio bins of their Table 2. Both distributions are written from their
+papers, including Galacticus' truncation of the Voigt profile, which is part of what is
+checked. All velocities are in units of the host virial velocity, so no cosmology enters and
+the values are exact.
+
+```
+./referenceVirialOrbits.py
+```
+
+Requires `numpy` and `scipy`.
