@@ -117,6 +117,32 @@ def tidalTensor(profile, position):
     )
 
 
+def tensorCentrifugal(position, velocity):
+    """The centrifugal contribution to the tidal tensor, in (km/s/Mpc)^2.
+
+    In the frame co-rotating with the satellite the centrifugal acceleration is -w x (w x r), with angular velocity
+    w = r x v / r^2, so its contribution to the tidal tensor dа_i/dx_j is |w|^2 delta_ij - w_i w_j. It is built from the
+    angular velocity, not from the velocity: the two coincide only for a circular orbit, and `--verify` checks this against a
+    numerical Jacobian of the acceleration."""
+    position = np.asarray(position, dtype=float)
+    velocity = np.asarray(velocity, dtype=float)
+    velocityAngular = np.cross(position, velocity) / np.dot(position, position)
+    return np.dot(velocityAngular, velocityAngular) * np.identity(3) - np.outer(velocityAngular, velocityAngular)
+
+
+def tensorCentrifugalFiniteDifference(position, velocity, step):
+    """The centrifugal contribution from a numerical Jacobian of the centrifugal acceleration, for `--verify`."""
+    position = np.asarray(position, dtype=float)
+    velocityAngular = np.cross(position, velocity) / np.dot(position, position)
+    acceleration = lambda x: -np.cross(velocityAngular, np.cross(velocityAngular, x))
+    jacobian = np.zeros((3, 3))
+    for j in range(3):
+        offset = np.zeros(3)
+        offset[j] = step
+        jacobian[:, j] = (acceleration(position + offset) - acceleration(position - offset)) / (2.0 * step)
+    return jacobian
+
+
 def tidalTensorFiniteDifference(profile, position, step):
     """The tidal tensor from a central finite-difference Hessian of the potential, for `--verify`."""
     position = np.asarray(position, dtype=float)
@@ -258,6 +284,9 @@ def grid():
         if (np.sum(tidalTensor(host, position) * tensorPathIntegrated) > 0.0) != aligned:
             tensorPathIntegrated = -tensorPathIntegrated
         massBound = fractionBound * massBasic
+        tensorTidal = tidalTensor(host, position)
+        tensorRotation = tensorCentrifugal(position, velocity)
+        unitRadial = position / np.linalg.norm(position)
         rate, details = rateHeating(
             host, position, velocity, tensorPathIntegrated, massBasic, massBound, concentration, massSpheroid, radiusSpheroid
         )
@@ -272,6 +301,10 @@ def grid():
                 massSpheroid=massSpheroid,
                 radiusSpheroid=radiusSpheroid,
                 onAxis=direction == "x",
+                tidalTensor=tensorTidal,
+                tensorCentrifugal=tensorRotation,
+                tidalTensorRadial=unitRadial @ tensorTidal @ unitRadial,
+                tidalTensorRadialCentrifugal=unitRadial @ (tensorTidal + tensorRotation) @ unitRadial,
                 rate=rate,
                 **details,
             )
@@ -316,6 +349,23 @@ def verify(results):
         radiusHalf = (gravitationalConstant * massHalf / (result["frequency"] / toPerGigaYear) ** 2) ** (1.0 / 3.0)
         if abs(satelliteDark.massEnclosed(radiusHalf) / massHalf - 1.0) > 1.0e-10:
             print("  FAIL: half-mass radius does not enclose the half mass")
+            failures += 1
+
+    # The centrifugal tensor must match a numerical Jacobian of the centrifugal acceleration, and must differ materially from
+    # the velocity-based form |v|^2 delta - v v over r^2, which is what Galacticus used before this was corrected; otherwise
+    # the assertions built on it could not tell the two apart.
+    for result in results:
+        position, velocity = result["position"], result["velocity"]
+        analytic = tensorCentrifugal(position, velocity)
+        numeric = tensorCentrifugalFiniteDifference(position, velocity, 1.0e-4 * np.linalg.norm(position))
+        if np.max(np.abs(numeric - analytic)) / np.max(np.abs(analytic)) > 1.0e-6:
+            print("  FAIL: centrifugal tensor does not match a numerical Jacobian")
+            failures += 1
+        velocityForm = (
+            np.dot(velocity, velocity) * np.identity(3) - np.outer(velocity, velocity)
+        ) / np.dot(position, position)
+        if np.max(np.abs(velocityForm - analytic)) / np.max(np.abs(analytic)) < 0.05:
+            print("  FAIL: the velocity-based centrifugal form differs by under 5% here")
             failures += 1
 
     # The configurations must actually span the regimes they are there for.
@@ -376,6 +426,14 @@ def main():
         emit("massSpheroid", [r["massSpheroid"] for r in results])
         emit("radiusSpheroid", [r["radiusSpheroid"] for r in results])
         emit("rateHeatingReference", [r["rate"] for r in results])
+        # The host's tidal tensor at the satellite's position, with and without the centrifugal term, for the assertions on
+        # the tidal field classes themselves.
+        for name, (i, j) in zip(("XX", "XY", "XZ", "YY", "YZ", "ZZ"), ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2))):
+            emit(f"tidalTensor{name}Reference", [r["tidalTensor"][i, j] for r in results])
+        for name, (i, j) in zip(("XX", "XY", "XZ", "YY", "YZ", "ZZ"), ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2))):
+            emit(f"tidalTensorCentrifugal{name}Reference", [(r["tidalTensor"] + r["tensorCentrifugal"])[i, j] for r in results])
+        emit("tidalTensorRadialReference", [r["tidalTensorRadial"] for r in results])
+        emit("tidalTensorRadialCentrifugalReference", [r["tidalTensorRadialCentrifugal"] for r in results])
     else:
         print(f"{'r/Mpc':>10} {'|v|':>8} {'M_bound':>9} {'c':>5} {'M_sph':>9} {'branch':>9} {'omega/Gyr':>10} {'tau/Gyr':>9} {'A(x)':>10} {'g:G':>11} {'dQ/dt':>12}")
         for r in results:
