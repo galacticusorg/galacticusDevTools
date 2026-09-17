@@ -55,7 +55,9 @@ boltzmannsConstantSI    = 1.380649e-23                 # J / K            (exact
 atomicMassUnitSI        = 1.66053906892e-27            # kg               (CODATA 2022)
 massSolarSI             = 1.98847e30                   # kg               (IAU 2015 nominal)
 megaParsecSI            = 3.0856775814913673e22        # m                (IAU 2015)
-gigaYearSI              = 3.1556952e16                 # s                (Julian gigayear)
+gigaYearSI              = 3.15581497635456e16          # s                (Galacticus' gigayear: 10^9 sidereal years)
+# The gigayear is a unit *definition*, not a measured constant, so unlike the values above it must match Galacticus'
+# for the comparison to mean anything. A Julian gigayear (3.1556952e16 s) differs by 3.8e-5; this script used it originally.
 ergsSI                  = 1.0e-7                       # J per erg
 
 # Atomic masses, in atomic mass units (Commission on Isotopic Abundances and Atomic Weights).

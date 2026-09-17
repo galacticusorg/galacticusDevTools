@@ -68,14 +68,23 @@ gravitationalConstant = 4.3011827419096073e-9
 # Conversion from km/s/Mpc to Gyr^-1. Galacticus applies this to both rates so that they are per unit
 # time for the ODE solver; the physics is done in km/s and Mpc throughout and only the final result is
 # converted. This is the `kilo * gigaYear / megaParsec` factor which appears in the Fortran.
+#
+# The values are Galacticus' own (`source/numerical/constants/astronomical.F90`). Note in particular that its gigaYear
+# is 10^9 *sidereal* years, 3.15581497635456e16 s, not 10^9 Julian years (3.1556952e16 s): the two differ by 3.8e-5,
+# which enters every rate here through this conversion. This script originally used the Julian value.
 kilo = 1.0e3
-gigaYear = 3.155695200e16
-megaParsec = 3.0856775809623245e22
+gigaYear = 3.15581497635456e16
+megaParsec = 3.08567758135e22
 toPerGigaYear = kilo * gigaYear / megaParsec
 
 # Cosmology: Planck 2018, matching the companion test's parameter file.
+hubbleConstant = 67.36
 omegaMatter = 0.3153
 omegaBaryon = 0.0493
+omegaDarkEnergy = 0.6847
+
+# The cosmic time, in Gyr, at which the companion test places its nodes.
+timeNode = 13.8
 
 # The fraction of a halo's mass held by its dark matter profile.
 #
@@ -311,19 +320,35 @@ configurations = [
 ]
 
 
-def radiusVirial(mass, densityContrast=200.0, hubbleConstant=67.36):
-    """Virial radius for a fixed contrast relative to the mean matter density, matching the companion
-    test's parameter file."""
+def expansionFactor(time):
+    """Expansion factor at a cosmic time in Gyr, for a flat matter plus cosmological constant universe (Galacticus'
+    `matterLambda` cosmology functions)."""
+    hubbleConstantPerGigaYear = hubbleConstant * toPerGigaYear
+    return (
+        omegaMatter / omegaDarkEnergy
+        * np.sinh(1.5 * hubbleConstantPerGigaYear * np.sqrt(omegaDarkEnergy) * time) ** 2
+    ) ** (1.0 / 3.0)
+
+
+def radiusVirial(mass, densityContrast=200.0, expansionFactor=1.0):
+    """Virial radius for a fixed contrast relative to the mean matter density at the given expansion factor.
+
+    The mean matter density is evaluated at the node's epoch. Under `matterLambda` the companion test's nodes, at
+    t = 13.8 Gyr, sit at a = 0.99997 rather than a = 1, where the mean density is higher by 1e-4 and the virial radius
+    smaller by 3.3e-5, so the rates test passes that expansion factor. The default of unity is correct for the
+    `staticUniverse` used by `satelliteOrbitEvolution.py`, whose mean density does not evolve. This script originally
+    assumed a = 1 throughout."""
     densityCritical = 3.0 * hubbleConstant**2 / (8.0 * np.pi * gravitationalConstant)
-    densityMean = omegaMatter * densityCritical
+    densityMean = omegaMatter * densityCritical / expansionFactor**3
     return (3.0 * mass / (4.0 * np.pi * densityContrast * densityMean)) ** (1.0 / 3.0)
 
 
 def grid():
     """Evaluate both rates for every configuration."""
-    radiusVirialHost = radiusVirial(massHaloHost)
+    expansionFactorNode = expansionFactor(timeNode)
+    radiusVirialHost = radiusVirial(massHaloHost, expansionFactor=expansionFactorNode)
     velocityVirialHost = np.sqrt(gravitationalConstant * massHaloHost / radiusVirialHost)
-    timescaleDynamicalHost = radiusVirialHost / velocityVirialHost * 3.0856775809623245e22 / 1.0e3 / 3.155695200e16
+    timescaleDynamicalHost = radiusVirialHost / velocityVirialHost / toPerGigaYear
     # Both profiles hold only the dark matter fraction of their halo's mass; see the note on `fractionDarkMatter`.
     host = ProfileNFW(massHaloHost * fractionDarkMatter, radiusVirialHost, concentrationHost)
 
@@ -334,10 +359,10 @@ def grid():
         # Two normalizations of the same satellite, because the code reaches for different ones in different places;
         # see the note on `fractionDarkMatter`.
         satelliteBaryonCorrected = ProfileNFW(
-            massSatellite * fractionDarkMatter, radiusVirial(massSatellite), concentrationSatellite_
+            massSatellite * fractionDarkMatter, radiusVirial(massSatellite, expansionFactor=expansionFactorNode), concentrationSatellite_
         )
         satelliteDarkMatterOnly = ProfileNFW(
-            massSatellite                     , radiusVirial(massSatellite), concentrationSatellite_
+            massSatellite                     , radiusVirial(massSatellite, expansionFactor=expansionFactorNode), concentrationSatellite_
         )
         position = np.array([fractionRadius * radiusVirialHost, 0.0, 0.0])
         velocity = np.array([fractionRadial * velocityVirialHost, fractionTangential * velocityVirialHost, 0.0])
