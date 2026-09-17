@@ -591,3 +591,27 @@ difference of terms which cancel to leading order and a series expansion is need
 ```
 
 Requires `numpy` and `scipy`.
+
+### `meiksin2006Check.py`
+
+Independent reference values for Galacticus' Meiksin (2006) intergalactic attenuation model,
+used by `tests.spectra.postprocess.Meiksin2006.exe`. Written from the equations of the paper
+(MNRAS 365, 807; arXiv:astro-ph/0512435) rather than from the Fortran.
+
+The Lyman-limit-system term is the delicate part, and three details of it are easy to get
+wrong in ways which partly mask one another: Γ(2−β,1) is the *incomplete* Γ function, not
+Γ(2−β); the two series alternate as (−1)ⁿ, which in Fortran must be written `(-1)**n`,
+because `**` binds more tightly than unary minus and `-1**n` is −1 for every n; and the two
+series begin at n=0 and n=1 respectively. With all three right, the bracketed factor reduces
+analytically to Γ(2−β) — `--self-check` verifies that identity, and also that the
+transmission satisfies 0 < T ≤ 1 across the plane. That bound is the useful discriminator:
+correcting the signs alone, without the other two details, drives the optical depth negative
+and the transmission above unity over a large region.
+
+```
+./meiksin2006Check.py --self-check   # the analytic identity and the transmission bound
+./meiksin2006Check.py                # table of reference values
+./meiksin2006Check.py --fortran      # Fortran array constructors
+```
+
+Requires `numpy` and `scipy`.
