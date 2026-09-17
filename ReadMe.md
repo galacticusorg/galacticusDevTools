@@ -544,3 +544,27 @@ camb linear.ini    # do_nonlinear = 0
 ```
 
 Requires `numpy` and `scipy`, and the two CAMB outputs in the working directory.
+
+### `massDistributionProfilesCheck.py`
+
+Independent reference values for Galacticus' Einasto and Burkert mass distributions, used by
+`tests.mass_distributions.Einasto_Burkert.exe`. Both classes are defined by their density
+alone and evaluate everything else from closed forms — incomplete Γ functions for Einasto,
+logarithms and arctangents for Burkert. This script instead integrates the density
+numerically, so the closed forms are checked against something sharing none of their
+algebra, which is what `tests.dark_matter_profiles.generic` cannot do: that test compares
+each profile's analytic results against *its own* numerical integrals, establishing that the
+closed forms match the density as coded but not that either is right.
+
+Everything is scale-free, so masses are in units of ρ₀r_s³ and potentials in units of
+Gρ₀r_s². The outer integral of the potential is transformed by s = x/t onto (0,1] rather
+than truncated at a large radius — Burkert's density falls only as s⁻³, and truncating gives
+a badly wrong answer. The Burkert radii reach to 10⁻⁶r_s, where the enclosed mass is the
+difference of terms which cancel to leading order and a series expansion is needed.
+
+```
+./massDistributionProfilesCheck.py             # table of reference values
+./massDistributionProfilesCheck.py --fortran   # Fortran array constructors, ready to paste
+```
+
+Requires `numpy` and `scipy`.
