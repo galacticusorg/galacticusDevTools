@@ -70,44 +70,22 @@ from scipy.optimize import brentq
 
 from satelliteOrbitRates import (
     ProfileNFW,
+    expansionFactor,
     fractionDarkMatter,
     gravitationalConstant,
-    omegaMatter,
+    timeNode,
+    toPerGigaYear,
 )
-
-# Unit conversions, with the values Galacticus itself uses (`source/numerical/constants/astronomical.F90`). These are
-# deliberately *not* imported from `satelliteOrbitRates.py`, whose gigaYear is 10^9 Julian years (3.1556952e16 s):
-# Galacticus' is 3.15581497635456e16 s, larger by 3.8e-5. The difference enters the rate twice, through the square of the
-# km/s/Mpc to Gyr^-1 conversion, and also shifts the cosmic time at which the virial radius is evaluated. Measured before
-# this was corrected, it was the whole of a 2e-4 disagreement with Galacticus.
-kilo = 1.0e3
-gigaYear = 3.15581497635456e16
-megaParsec = 3.08567758135e22
-toPerGigaYear = kilo * gigaYear / megaParsec
-
-# Cosmology and epoch, matching the companion test's parameter file and program.
-hubbleConstant = 67.36
-omegaDarkEnergy = 0.6847
-timeNode = 13.8
+from satelliteOrbitRates import radiusVirial as radiusVirialAtExpansionFactor
 
 
-def expansionFactor(time):
-    """Expansion factor at a cosmic time in Gyr, for a flat matter plus cosmological constant universe."""
-    hubbleConstantPerGigaYear = hubbleConstant * toPerGigaYear
-    return (
-        omegaMatter / omegaDarkEnergy
-        * np.sinh(1.5 * hubbleConstantPerGigaYear * np.sqrt(omegaDarkEnergy) * time) ** 2
-    ) ** (1.0 / 3.0)
+def radiusVirial(mass):
+    """Virial radius at the companion test's epoch, t = 13.8 Gyr, where a = 0.99997 under `matterLambda`.
 
+    Both this and Galacticus' own gigaYear (imported through `toPerGigaYear`) matter: before `satelliteOrbitRates.py`
+    was corrected to use them, a Julian gigaYear and a = 1 were together the whole of an initial 2e-4 disagreement."""
+    return radiusVirialAtExpansionFactor(mass, expansionFactor=expansionFactor(timeNode))
 
-def radiusVirial(mass, densityContrast=200.0):
-    """Virial radius for a fixed contrast relative to the mean matter density *at the node's time*.
-
-    `satelliteOrbitRates.py` evaluates the mean density today (a = 1), but the test's nodes sit at t = 13.8 Gyr, where
-    a = 0.99997: the mean density there is higher by 1e-4, and the virial radius smaller by 3.3e-5."""
-    densityCritical = 3.0 * hubbleConstant**2 / (8.0 * np.pi * gravitationalConstant)
-    densityMean = omegaMatter * densityCritical / expansionFactor(timeNode) ** 3
-    return (3.0 * mass / (4.0 * np.pi * densityContrast * densityMean)) ** (1.0 / 3.0)
 
 # The heating rate class parameters, stated explicitly in the companion test's parameter file.
 epsilon = 3.0
@@ -154,8 +132,12 @@ def tidalTensorFiniteDifference(profile, position, step):
     return -hessian
 
 
-def frequencyOrbitalSatellite(massBasic, massBound, concentration):
-    """The satellite's internal orbital frequency, in Gyr^-1, and which branch was used."""
+def frequencyOrbitalSatellite(massBasic, massBound, concentration, massSpheroid=0.0, radiusSpheroid=0.0):
+    """The satellite's internal orbital frequency, in Gyr^-1, and which branch was used.
+
+    The half-mass radius is that of the satellite's *dark matter*, but the circular velocity there is that of its *total*
+    mass distribution, so a baryonic component raises the frequency. The optional spheroid is a Hernquist profile, whose
+    enclosed mass is M r^2 / (r + a)^2."""
     radiusVirialSatellite = radiusVirial(massBasic)
     # The dark matter distribution of the satellite, normalized to its dark fraction.
     satelliteDark = ProfileNFW(massBasic * fractionDarkMatter, radiusVirialSatellite, concentration)
@@ -170,17 +152,21 @@ def frequencyOrbitalSatellite(massBasic, massBound, concentration):
             xtol=1.0e-20,
             rtol=1.0e-14,
         )
-        velocityCircular = np.sqrt(gravitationalConstant * massHalf / radiusHalf)
+        massEnclosed = massHalf
+        if massSpheroid > 0.0:
+            massEnclosed += massSpheroid * radiusHalf**2 / (radiusHalf + radiusSpheroid) ** 2
+        velocityCircular = np.sqrt(gravitationalConstant * massEnclosed / radiusHalf)
         return velocityCircular / radiusHalf * toPerGigaYear, "half-mass"
     velocityVirialSatellite = np.sqrt(gravitationalConstant * massBasic / radiusVirialSatellite)
     return velocityVirialSatellite / radiusVirialSatellite * toPerGigaYear, "virial"
 
 
-def rateHeating(host, position, velocity, tensorPathIntegrated, massBasic, massBound, concentration):
+def rateHeating(host, position, velocity, tensorPathIntegrated, massBasic, massBound, concentration,
+                massSpheroid=0.0, radiusSpheroid=0.0):
     """The normalized tidal heating rate dQ/dt, in (km/s/Mpc)^2 / Gyr, with its ingredients."""
     radius = np.linalg.norm(position)
     speed = np.linalg.norm(velocity)
-    frequency, branch = frequencyOrbitalSatellite(massBasic, massBound, concentration)
+    frequency, branch = frequencyOrbitalSatellite(massBasic, massBound, concentration, massSpheroid, radiusSpheroid)
     tensor = tidalTensor(host, position)
     contraction = np.sum(tensor * tensorPathIntegrated)
     if speed <= 0.0:
@@ -227,22 +213,30 @@ directions = {
 # `aligned` chooses the sign of the path integral so that its contraction with the tidal field is positive;
 # the one row with it false has a negative contraction, and so a rate which the code clamps to zero.
 #
-# (radius / R_vir, speed / V_vir, direction, path integral, aligned, M_bound / M_basic, c_sat)
+# The last three rows give the satellite a Hernquist stellar spheroid. Its circular velocity adds in quadrature to the dark
+# matter's at the (dark matter) half-mass radius, raising omega and so suppressing the rate; without such a row nothing would
+# distinguish the total mass distribution from the dark matter one. The spheroid is additional to the halo's mass rather than
+# taken out of it - a real model would move mass from one to the other, but here only the frequency is under test.
+#
+# (radius / R_vir, speed / V_vir, direction, path integral, aligned, M_bound / M_basic, c_sat, M_spheroid, a_spheroid / Mpc)
 massSatellite = 1.0e10
 configurations = [
-    (0.10, 2.00, "d", "A", True , 1.00  , 15.0),
-    (0.30, 1.50, "d", "A", True , 1.00  , 15.0),
-    (1.00, 0.50, "d", "A", True , 1.00  , 15.0),
-    (0.30, 0.60, "e", "B", True , 1.00  , 15.0),
-    (0.30, 4.00, "e", "B", True , 1.00  , 15.0),
-    (0.30, 1.50, "x", "A", True , 1.00  , 15.0),
-    (0.30, 1.50, "e", "A", True , 1.00  ,  5.0),
-    (0.30, 1.50, "e", "A", True , 1.00  , 30.0),
-    (0.30, 1.50, "e", "B", True , 0.60  , 15.0),
-    (0.30, 1.50, "d", "B", True , 0.30  , 15.0),
-    (0.30, 1.50, "d", "B", True , 0.05  , 15.0),
-    (0.30, 1.50, "d", "B", True , 1.0e-7, 15.0),
-    (0.30, 1.50, "d", "A", False, 1.00  , 15.0),
+    (0.10, 2.00, "d", "A", True , 1.00  , 15.0, 0.0   , 0.000),
+    (0.30, 1.50, "d", "A", True , 1.00  , 15.0, 0.0   , 0.000),
+    (1.00, 0.50, "d", "A", True , 1.00  , 15.0, 0.0   , 0.000),
+    (0.30, 0.60, "e", "B", True , 1.00  , 15.0, 0.0   , 0.000),
+    (0.30, 4.00, "e", "B", True , 1.00  , 15.0, 0.0   , 0.000),
+    (0.30, 1.50, "x", "A", True , 1.00  , 15.0, 0.0   , 0.000),
+    (0.30, 1.50, "e", "A", True , 1.00  ,  5.0, 0.0   , 0.000),
+    (0.30, 1.50, "e", "A", True , 1.00  , 30.0, 0.0   , 0.000),
+    (0.30, 1.50, "e", "B", True , 0.60  , 15.0, 0.0   , 0.000),
+    (0.30, 1.50, "d", "B", True , 0.30  , 15.0, 0.0   , 0.000),
+    (0.30, 1.50, "d", "B", True , 0.05  , 15.0, 0.0   , 0.000),
+    (0.30, 1.50, "d", "B", True , 1.0e-7, 15.0, 0.0   , 0.000),
+    (0.30, 1.50, "d", "A", False, 1.00  , 15.0, 0.0   , 0.000),
+    (0.30, 1.50, "d", "A", True , 1.00  , 15.0, 1.0e09, 0.002),
+    (0.10, 2.00, "e", "B", True , 1.00  , 15.0, 3.0e09, 0.005),
+    (0.30, 1.50, "d", "A", True , 0.30  , 15.0, 1.0e09, 0.002),
 ]
 
 
@@ -253,7 +247,8 @@ def grid():
     scaleTensor = (velocityVirialHost / radiusVirialHost) ** 2
     results = []
     massBasic = massSatellite
-    for fractionRadius, fractionSpeed, direction, labelTensor, aligned, fractionBound, concentration in configurations:
+    for (fractionRadius, fractionSpeed, direction, labelTensor, aligned, fractionBound, concentration,
+         massSpheroid, radiusSpheroid) in configurations:
         unit = np.asarray(directions[direction]) / np.linalg.norm(directions[direction])
         position = fractionRadius * radiusVirialHost * unit
         # The velocity is perpendicular to nothing in particular; only its magnitude enters the rate.
@@ -263,7 +258,9 @@ def grid():
         if (np.sum(tidalTensor(host, position) * tensorPathIntegrated) > 0.0) != aligned:
             tensorPathIntegrated = -tensorPathIntegrated
         massBound = fractionBound * massBasic
-        rate, details = rateHeating(host, position, velocity, tensorPathIntegrated, massBasic, massBound, concentration)
+        rate, details = rateHeating(
+            host, position, velocity, tensorPathIntegrated, massBasic, massBound, concentration, massSpheroid, radiusSpheroid
+        )
         results.append(
             dict(
                 position=position,
@@ -272,6 +269,8 @@ def grid():
                 massBasic=massBasic,
                 massBound=massBound,
                 concentration=concentration,
+                massSpheroid=massSpheroid,
+                radiusSpheroid=radiusSpheroid,
                 onAxis=direction == "x",
                 rate=rate,
                 **details,
@@ -309,7 +308,7 @@ def verify(results):
 
     # The half-mass radius must enclose the half mass, and the frequency be the circular one there.
     for result in results:
-        if result["branch"] != "half-mass":
+        if result["branch"] != "half-mass" or result["massSpheroid"] > 0.0:
             continue
         radiusVirialSatellite = radiusVirial(result["massBasic"])
         satelliteDark = ProfileNFW(result["massBasic"] * fractionDarkMatter, radiusVirialSatellite, result["concentration"])
@@ -330,6 +329,14 @@ def verify(results):
     if not any(result["contraction"] < 0.0 for result in results):
         print("  FAIL: no configuration has a negative contraction")
         failures += 1
+    # A spheroid must change the frequency by enough that the comparison could not pass if it were ignored.
+    for result in results:
+        if result["massSpheroid"] <= 0.0:
+            continue
+        frequencyDark, _ = frequencyOrbitalSatellite(result["massBasic"], result["massBound"], result["concentration"])
+        if abs(result["frequency"] / frequencyDark - 1.0) < 0.02:
+            print("  FAIL: a spheroid changes the orbital frequency by under 2%")
+            failures += 1
     # Every off-axis configuration with a positive rate must have off-diagonal elements contributing materially, or
     # the double contraction is not being tested there. (On an axis the tidal tensor is diagonal, so they cannot.)
     for result in results:
@@ -366,13 +373,15 @@ def main():
         emit("massSatellite", [r["massBasic"] for r in results])
         emit("massBound", [r["massBound"] for r in results])
         emit("concentrationSatellite", [r["concentration"] for r in results])
+        emit("massSpheroid", [r["massSpheroid"] for r in results])
+        emit("radiusSpheroid", [r["radiusSpheroid"] for r in results])
         emit("rateHeatingReference", [r["rate"] for r in results])
     else:
-        print(f"{'r/Mpc':>10} {'|v|':>8} {'M_bound':>9} {'c':>5} {'branch':>9} {'omega/Gyr':>10} {'tau/Gyr':>9} {'A(x)':>10} {'g:G':>11} {'dQ/dt':>12}")
+        print(f"{'r/Mpc':>10} {'|v|':>8} {'M_bound':>9} {'c':>5} {'M_sph':>9} {'branch':>9} {'omega/Gyr':>10} {'tau/Gyr':>9} {'A(x)':>10} {'g:G':>11} {'dQ/dt':>12}")
         for r in results:
             print(
                 f"{np.linalg.norm(r['position']):10.4e} {np.linalg.norm(r['velocity']):8.2f} {r['massBound']:9.2e} "
-                f"{r['concentration']:5.1f} {r['branch']:>9} {r['frequency']:10.4e} {r['timescaleShock']:9.3e} "
+                f"{r['concentration']:5.1f} {r['massSpheroid']:9.2e} {r['branch']:>9} {r['frequency']:10.4e} {r['timescaleShock']:9.3e} "
                 f"{r['correction']:10.3e} {r['contraction']:11.4e} {r['rate']:12.5e}"
             )
 
