@@ -421,6 +421,29 @@ bounding the reference's own error; `--fortran` emits the trajectory for pasting
 
 Requires `numpy` and `scipy`.
 
+### `satelliteTidalHeatingRate.py`
+
+Independent reference values for the Gnedin, Hernquist & Ostriker (1999) satellite tidal heating
+rate, dQ/dt = (epsilon/3) [1 + (omega tau)^2]^(-gamma) g_ij G_ij, used by
+`tests.satellite_tidal_heating_rate.exe`. Evaluated pointwise, with the path-integrated tidal tensor
+G_ij given, so that the rate is verified separately from the accumulation of that integral along an
+orbit. Positions lie off the coordinate axes and every G_ij has off-diagonal elements, so that the
+orientation of the tidal tensor and the double contraction are both exercised.
+
+The NFW profile and virial radius are imported from `satelliteOrbitRates.py`. `--verify` checks the
+analytic tidal tensor against a finite-difference Hessian of the potential and against Poisson's
+equation, and that the grid actually spans the regimes it is meant to (the adiabatic correction from
+near unity to below 10^-3, the virial-frequency fallback, a clamped negative rate, and material
+off-diagonal contributions). `--fortran` emits the reference values as Fortran array initializers.
+
+```
+./satelliteTidalHeatingRate.py
+./satelliteTidalHeatingRate.py --verify
+./satelliteTidalHeatingRate.py --fortran
+```
+
+Requires `numpy` and `scipy`.
+
 ## License
 
 The tools in this repository are released under the MIT License -- see
