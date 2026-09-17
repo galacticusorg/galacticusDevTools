@@ -32,10 +32,15 @@ Conventions that must be matched for the comparison to be meaningful
     times the *mean* matter density, so the virial radius is analytic and the comparison does not also
     test the spherical collapse solver, which has its own tests.
   * The specific angular momentum handed to the solver is *not* J/M. The standard disk component passes
-    (J/M) x `ratioAngularMomentumSolverRadius`, and the standard spheroid component passes
-    (J/M) x `ratioAngularMomentumScaleRadius`; both default to 0.5. The Cole et al. (2000) flat-versus-
-    spherical correction to the disk's value is switched off in the companion test's parameter file and
-    is not applied here.
+    (J/M) x `ratioAngularMomentumSolverRadius` and the standard spheroid component passes
+    (J/M) x `ratioAngularMomentumScaleRadius`. Both are 0.5 here, but neither is a flat default and they
+    arrive there by different routes, so neither would survive a change of profile unnoticed:
+      - the disk's is `radiusStructureSolver` x I_1/I_2 with I_n = int Sigma(R) R^n dR. For an exponential
+        disk I_2/I_1 = 2 R_d, and `radiusStructureSolver` is one scale length, giving exactly 1/2.
+      - the spheroid's is I_2/I_3 with I_n = int rho(r) r^n dr. For a Hernquist profile I_3 diverges
+        logarithmically, so the code takes its documented fallback value of 1/2 instead.
+    The Cole et al. (2000) flat-versus-spherical correction to the disk's value defaults to off and is
+    left off by the companion test, so it is not applied here.
   * Which radius is solved for. The disk's radius is the exponential scale length; the spheroid's is the
     Hernquist scale radius a.
   * The dark matter term in the rotation curve is spherical, G M_DM(<r)/r, where M_DM is the *contracted*
@@ -414,7 +419,11 @@ def main():
         def emit(name, values, formatString="{:22.15e}"):
             body = ",".join(formatString.format(value).replace("e", "d") for value in values)
             print(f"  {name}=[{body}]")
+        print(f"  integer, parameter :: countModels={len(results)}")
         emit("massHalo", [r["massHalo"] for r in results])
+        emit("concentration", [r["concentration"] for r in results])
+        emit("massDisk", [r["massDisk"] for r in results])
+        emit("massSpheroid", [r["massSpheroid"] for r in results])
         emit("angularMomentumDisk", [r["angularMomentumDisk"] for r in results])
         emit("angularMomentumSpheroid", [r["angularMomentumSpheroid"] for r in results])
         emit("radiusDiskReference", [r["radiusDisk"] for r in results])
