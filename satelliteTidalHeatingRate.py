@@ -158,13 +158,18 @@ def tidalTensorFiniteDifference(profile, position, step):
     return -hessian
 
 
-def frequencyOrbitalSatellite(massBasic, massBound, concentration, massSpheroid=0.0, radiusSpheroid=0.0):
+def frequencyOrbitalSatellite(massBasic, massBound, concentration, massSpheroid=0.0, radiusSpheroid=0.0,
+                              radiusVirialSatellite=None):
     """The satellite's internal orbital frequency, in Gyr^-1, and which branch was used.
 
     The half-mass radius is that of the satellite's *dark matter*, but the circular velocity there is that of its *total*
     mass distribution, so a baryonic component raises the frequency. The optional spheroid is a Hernquist profile, whose
     enclosed mass is M r^2 / (r + a)^2."""
-    radiusVirialSatellite = radiusVirial(massBasic)
+    # The satellite's virial radius may be supplied by the caller, since it depends on the epoch and on the cosmology: the
+    # companion test places its nodes at t = 13.8 Gyr under `matterLambda`, while the orbit model of
+    # `satelliteTidalHeatingEvolution.py` uses a static universe.
+    if radiusVirialSatellite is None:
+        radiusVirialSatellite = radiusVirial(massBasic)
     # The dark matter distribution of the satellite, normalized to its dark fraction.
     satelliteDark = ProfileNFW(massBasic * fractionDarkMatter, radiusVirialSatellite, concentration)
     massHalf = 0.5 * min(fractionDarkMatter * massBound, satelliteDark.massEnclosed(radiusVirialSatellite))
@@ -188,11 +193,13 @@ def frequencyOrbitalSatellite(massBasic, massBound, concentration, massSpheroid=
 
 
 def rateHeating(host, position, velocity, tensorPathIntegrated, massBasic, massBound, concentration,
-                massSpheroid=0.0, radiusSpheroid=0.0):
+                massSpheroid=0.0, radiusSpheroid=0.0, radiusVirialSatellite=None):
     """The normalized tidal heating rate dQ/dt, in (km/s/Mpc)^2 / Gyr, with its ingredients."""
     radius = np.linalg.norm(position)
     speed = np.linalg.norm(velocity)
-    frequency, branch = frequencyOrbitalSatellite(massBasic, massBound, concentration, massSpheroid, radiusSpheroid)
+    frequency, branch = frequencyOrbitalSatellite(
+        massBasic, massBound, concentration, massSpheroid, radiusSpheroid, radiusVirialSatellite
+    )
     tensor = tidalTensor(host, position)
     contraction = np.sum(tensor * tensorPathIntegrated)
     if speed <= 0.0:

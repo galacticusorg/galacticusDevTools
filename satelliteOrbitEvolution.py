@@ -60,6 +60,17 @@ concentrationSatellite = 15.0
 logarithmCoulomb = 2.0
 efficiencyStripping = 2.5
 timeInitial = 8.0
+
+# The initial phase space coordinates, in Mpc and km/s, taken *verbatim* from the companion tree rather than
+# recomputed here. The satellite starts at the host's virial radius falling inward, with equal radial and
+# tangential speeds of half the host's virial velocity, but the radius the tree states differs from this
+# script's own by 4e-5: the tree carries Galacticus' virial radius under `matterLambda` at 13.8 Gyr, while the
+# model runs in a static universe where the mean density, and so the virial radius, is that at an expansion
+# factor of unity. The tree is what the model actually integrates from, so it is what the reference must use.
+# Starting from this script's value instead left a systematic difference of 1.2e-4 in the trajectory, which no
+# tightening of either integrator's tolerance would reduce.
+positionInitial = np.array([+0.310934597000000, 0.0               , 0.0])
+velocityInitial = np.array([-58.80586697325706, +58.80586697325706, 0.0])
 timeFinal = 13.8
 timesOutput = [9.0, 10.0, 11.0, 12.0, 13.0, 13.8]
 
@@ -126,15 +137,7 @@ def integrate(rtol=1.0e-11, atol=1.0e-14):
         )
         return np.concatenate([velocity * toPerGigaYear, acceleration, [rateMass]])
 
-    # The satellite starts at the host's virial radius, falling inward with equal radial and tangential
-    # speeds of half the host's virial velocity - the initial conditions stated in the companion tree.
-    stateInitial = np.array(
-        [
-            radiusVirialHost, 0.0, 0.0,
-            -0.5 * velocityVirialHost, 0.5 * velocityVirialHost, 0.0,
-            massSatelliteInitial,
-        ]
-    )
+    stateInitial = np.concatenate([positionInitial, velocityInitial, [massSatelliteInitial]])
     solution = solve_ivp(
         derivatives,
         (timeInitial, timeFinal),

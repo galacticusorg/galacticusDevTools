@@ -421,6 +421,34 @@ bounding the reference's own error; `--fortran` emits the trajectory for pasting
 
 Requires `numpy` and `scipy`.
 
+### `satelliteTidalHeatingEvolution.py`
+
+Independent reference for the *accumulation* of Gnedin, Hernquist & Ostriker (1999) tidal heating
+along a satellite's orbit, used by `testSuite/test-satellite-tidal-heating-evolution.py`. The
+companion to `satelliteTidalHeatingRate.py`: that script verifies the heating rate pointwise, with
+the path-integrated tidal tensor given, while this one integrates
+
+    dG_ij/dt = g_ij - efficiencyDecay G_ij / T_orb,   dQ/dt = (epsilon/3) A(omega T_shock) g_ij G_ij
+
+alongside the orbit and mass loss, so that the assembly of both into the differential equations is
+checked. The orbit and rate functions are imported from `satelliteOrbitEvolution.py` and
+`satelliteTidalHeatingRate.py` rather than restated, so the references cannot drift apart.
+
+The satellite's density profile does not respond to the heating in the companion model, which keeps
+this a test of the accumulation rather than of the profile's response; the latter is covered
+analytically by `tests.dark_matter_profiles.heated.exe`.
+
+`--converge` re-integrates at a looser tolerance and reports the shift, bounding the reference's own
+error (1e-8 in Q); `--fortran` emits the reference values for the test.
+
+```
+./satelliteTidalHeatingEvolution.py
+./satelliteTidalHeatingEvolution.py --converge
+./satelliteTidalHeatingEvolution.py --fortran
+```
+
+Requires `numpy` and `scipy`.
+
 ### `satelliteTidalHeatingRate.py`
 
 Independent reference values for the Gnedin, Hernquist & Ostriker (1999) satellite tidal heating
