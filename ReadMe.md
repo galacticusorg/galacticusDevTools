@@ -643,3 +643,30 @@ and the transmission above unity over a large region.
 ```
 
 Requires `numpy` and `scipy`.
+
+### `zhao1996DispersionCheck.py`
+
+Independent reference velocity dispersions for Galacticus' Zhao (1996) mass distribution, used
+by `tests.mass_distributions.Zhao1996_dispersion.exe`. Galacticus evaluates the dispersion of
+a self-gravitating profile from closed forms for four special cases of (α,β,γ) = (1,3,γ), with
+γ ∈ {0, ½, 1, 3/2}, each implemented as three branches — a series for small radii, a full
+solution, and a series for large radii. This script integrates the isotropic Jeans equation
+numerically instead, so all twelve branches can be checked against something sharing none of
+their algebra.
+
+Two numerical points matter, and both give badly wrong answers if ignored. The outer Jeans
+integral runs to infinity with an integrand decaying only as (ln s)/s⁴, so it is taken in log
+space rather than truncated. And the reference must *not* be built by comparing the series
+against the full closed forms: those lose accuracy catastrophically to cancellation at large
+radius — the γ=1 one is wrong by a factor of 240 at r/r_s = 10⁴, which is exactly why the
+large-radius series exist — so comparing against them condemns the series wrongly. `--validate`
+checks the reference against the exact γ=1 result, for which the density and mass are
+elementary.
+
+```
+./zhao1996DispersionCheck.py --validate   # against the exact NFW solution
+./zhao1996DispersionCheck.py              # table of reference values
+./zhao1996DispersionCheck.py --fortran    # Fortran array constructors
+```
+
+Requires `numpy` and `scipy`.
