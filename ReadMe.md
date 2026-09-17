@@ -670,3 +670,29 @@ elementary.
 ```
 
 Requires `numpy` and `scipy`.
+
+### `hydrogenNetworkCheck.py`
+
+Independent reference values for Galacticus' primordial hydrogen chemistry network, used by
+`tests.chemical.reaction_rates_hydrogen_network.exe`. Transcribed from the published fits of
+Abel et al. (1997; arXiv:astro-ph/9608040) rather than from the Fortran.
+
+Covers their reactions 7, 8, 14 and 16 (rate coefficients) and 24, 26 and 28 (photo
+cross-sections, the last in both the Lyman and Werner bands and for both the para and ortho
+states). All were found to agree with Galacticus exactly. The cross-sections are returned by
+Galacticus through an interpolating table, so the references for those are interpolated on the
+same grid: the comparison then tests the fitting formulae, which are the physics, rather than
+the tabulation, which is a numerical detail shared by both. `--self-check` reports what the
+tabulation itself costs — between 2×10⁻⁴ and 2×10⁻³ at the energies sampled.
+
+Note that only the rate coefficients are reachable from the Fortran test: exporting any of the
+cross-section functions segfaults gfortran 16, as they hold `save`, `!$omp threadprivate`
+derived-type interpolation tables. Those three were checked by hand against this script instead.
+
+```
+./hydrogenNetworkCheck.py --self-check   # what the tabulation costs
+./hydrogenNetworkCheck.py                # table of reference values
+./hydrogenNetworkCheck.py --fortran      # Fortran array constructors
+```
+
+Requires `scipy`.
