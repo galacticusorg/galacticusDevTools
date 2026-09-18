@@ -449,6 +449,32 @@ error (1e-8 in Q); `--fortran` emits the reference values for the test.
 
 Requires `numpy` and `scipy`.
 
+### `satelliteHeatedProfile.py`
+
+Independent reference for the response of a dark matter profile to tidal heating, used by
+`tests.dark_matter_profiles.heated_tidal_NFW.exe`. The third of the tidal heating references:
+`satelliteTidalHeatingRate.py` covers the heating rate, `satelliteTidalHeatingEvolution.py` its
+accumulation along an orbit, and this one what the accumulated heat does to the profile.
+
+A shell at radius r_i given specific energy eps(r_i) expands to r_f where
+eps(r_i) + (G M(<r_i)/2)(1/r_f - 1/r_i) = 0; the enclosed mass is carried with the shell and the
+density follows from the Jacobian of the mapping. All three are emitted. The specific energy includes
+the second-order term, whose coefficient depends on the density logarithmic slope - the term the
+existing `tests.dark_matter_profiles.heated.exe` switches off by setting every second-order
+coefficient to zero.
+
+`--first-order` switches that term off, so the two orders can be asserted separately. `--verify`
+checks that heating expands every shell, reduces the enclosed mass and density, and that the
+second-order term is a meaningful fraction of the first. `--fortran` emits the reference values.
+
+```
+./satelliteHeatedProfile.py
+./satelliteHeatedProfile.py --verify
+./satelliteHeatedProfile.py --fortran [--first-order]
+```
+
+Requires `numpy` and `scipy`.
+
 ### `satelliteTidalHeatingRate.py`
 
 Independent reference values for the Gnedin, Hernquist & Ostriker (1999) satellite tidal heating
