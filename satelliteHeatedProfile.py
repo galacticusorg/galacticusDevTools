@@ -27,13 +27,13 @@ profile's one-dimensional velocity dispersion, and chi_rv is the position-veloci
 
 Note on the second-order coefficient
 -------------------------------------
-The sqrt(2) above is what `source/mass_distributions/spherical/heating/tidal.F90` computes. The class'
-own documentation instead gives eps_2 = (2/3) f sigma_rms (1 + chi_rv) sqrt(eps_1) with
-sigma_rms = sqrt(3) sigma_1D, which is a coefficient of 2/sqrt(3) = 1.155 rather than sqrt(2) = 1.414 -
-the two differ by sqrt(3/2). This script follows the *code*, so the comparison tests everything else;
-which of the two is intended is a question for the author, and `--verify` reports the size of the
-discrepancy rather than hiding it. A wrong coefficient here is largely degenerate with f, which is a
-free parameter, so it would not show up as a failure of any fit.
+The sqrt(2) above is what `source/mass_distributions/spherical/heating/tidal.F90` computes, and it is
+the form given by Benson & Du (2022), the source of this model. The class' documentation used to give
+eps_2 = (2/3) f sigma_rms (1 + chi_rv) sqrt(eps_1) with sigma_rms = sqrt(3) sigma_1D, a coefficient of
+2/sqrt(3) = 1.155 rather than sqrt(2) = 1.414 - the two differ by sqrt(3/2). That discrepancy was found
+while writing this script and resolved in favor of the code, against the paper; the documentation has
+since been corrected. Worth recording because a wrong coefficient here is largely degenerate with f,
+which is a free parameter, so no fit would have revealed it.
 
 Conventions that must be matched for the comparison to be meaningful
 --------------------------------------------------------------------
@@ -216,10 +216,9 @@ def verify(results):
         print(f"  FAIL: the second-order term reaches only {max(ratios):.3f} of the first order")
         failures += 1
 
-    # Report the size of the documentation discrepancy in the second-order coefficient, which this script
-    # resolves in favour of the code. This is informational, not a failure.
-    print(f"  the second-order term is {min(ratios):.3f} to {max(ratios):.3f} of the first order;")
-    print(f"  the class' documentation would make it smaller by a factor sqrt(3/2) = {np.sqrt(1.5):.4f}")
+    # Report how large the second-order term is, so that a reader can see it is a perturbation rather than
+    # a correction which dominates. Informational, not a failure.
+    print(f"  the second-order term is {min(ratios):.3f} to {max(ratios):.3f} of the first order")
 
     print(f"{'all internal checks passed' if failures == 0 else str(failures) + ' internal check(s) failed'}")
     return failures
