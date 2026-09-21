@@ -193,6 +193,18 @@ is opened in the default browser at the end of the run.
 Run from a directory with the `gh-pages` branch of Galacticus checked out.
 Requires the GitHub CLI (`gh`).
 
+### `parameterFuzzer/`
+
+Fuzzes Galacticus' parameter space: generates many mutated parameter files from
+a known-good base file, runs them, clusters the failures, reduces each to a
+minimal reproducer, and later re-measures those reproducers against changed
+code (`fuzzParameters.py`, `minimizeCases.py`, `replayCases.py`). The first
+campaign, from `parameters/quickTest.xml`, found segmentation faults, a class
+which could not be constructed, runaway memory use, and many unphysical values
+which gave a floating point exception rather than a message naming the
+parameter. See `parameterFuzzer/ReadMe.md` for usage and for the traps worth
+knowing before starting a campaign.
+
 ### `deltaTestCaseReducer/`
 
 Wrapper around the [Delta debugging tool](https://github.com/dsw/delta) for
