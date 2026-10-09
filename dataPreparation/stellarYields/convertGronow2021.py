@@ -98,7 +98,7 @@ def convertModel(model, source, outputDirectory, atomicData, cache, metallicityS
         scienceURL          = paperURL,
         transcriptionSource = f"VICE (Johnson 2019), MIT licensed, revision {viceRevision}",
         transcriptionURL    = viceRepoURL,
-        generatedBy         = "galacticusDevTools/stellarYields/convertGronow2021.py",
+        generatedBy         = "galacticusDevTools/dataPreparation/stellarYields/convertGronow2021.py",
         inputs              = [origin],
         notes               = notes(metallicitySolar, relative),
     )
@@ -130,7 +130,7 @@ def convertSequence(coreMass, shellMass, models, source, outputDirectory, atomic
         scienceURL          = paperURLb,
         transcriptionSource = f"VICE (Johnson 2019), MIT licensed, revision {viceRevision}",
         transcriptionURL    = viceRepoURL,
-        generatedBy         = "galacticusDevTools/stellarYields/convertGronow2021.py",
+        generatedBy         = "galacticusDevTools/dataPreparation/stellarYields/convertGronow2021.py",
         inputs              = origins,
         notes               = notes(metallicitySolar)+[
                                "Only the progenitor metallicity differs between these sets; the core and shell "

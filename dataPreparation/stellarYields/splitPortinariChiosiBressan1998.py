@@ -72,7 +72,7 @@ def main():
         provenance = Provenance(
             scienceSource = sourceText,
             scienceURL    = sourceURL,
-            generatedBy   = "galacticusDevTools/stellarYields/splitPortinariChiosiBressan1998.py",
+            generatedBy   = "galacticusDevTools/dataPreparation/stellarYields/splitPortinariChiosiBressan1998.py",
             inputs        = [os.path.basename(inputFileName)],
             notes         = [f"This file carries only the {description} from the source compilation; the "
                              "remaining properties are in its companion file.",

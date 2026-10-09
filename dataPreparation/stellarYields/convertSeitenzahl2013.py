@@ -76,7 +76,7 @@ def convertModel(model, source, outputDirectory, atomicData, cache):
         scienceURL          = paperURL,
         transcriptionSource = f"VICE (Johnson 2019), MIT licensed, revision {viceRevision}",
         transcriptionURL    = viceRepoURL,
-        generatedBy         = "galacticusDevTools/stellarYields/convertSeitenzahl2013.py",
+        generatedBy         = "galacticusDevTools/dataPreparation/stellarYields/convertSeitenzahl2013.py",
         inputs              = [origin],
         notes               = ["Yields are gross masses of each isotope ejected, in Solar masses.",
                                "Hydrogen and helium are excluded: the Galacticus reader sums all isotopes "
@@ -114,7 +114,7 @@ def convertSequence(source, outputDirectory, atomicData, cache):
         scienceURL          = paperURL,
         transcriptionSource = f"VICE (Johnson 2019), MIT licensed, revision {viceRevision}",
         transcriptionURL    = viceRepoURL,
-        generatedBy         = "galacticusDevTools/stellarYields/convertSeitenzahl2013.py",
+        generatedBy         = "galacticusDevTools/dataPreparation/stellarYields/convertSeitenzahl2013.py",
         inputs              = origins,
         notes               = ["Yields are gross masses of each isotope ejected, in Solar masses.",
                                "Hydrogen and helium are excluded: the Galacticus reader sums all isotopes "

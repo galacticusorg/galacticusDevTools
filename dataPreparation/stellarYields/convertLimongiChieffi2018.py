@@ -186,7 +186,7 @@ def convert(setName, velocity, yieldBlocks, grossBlocks, remnants, lifetimes, ou
         transcriptionSource = ("Yields and remnant masses from the ORFEO database; lifetimes from the CDS copy "
                                "of the paper's Table 5 (J/ApJS/237/13)"),
         transcriptionURL    = orfeoURL,
-        generatedBy         = "galacticusDevTools/stellarYields/convertLimongiChieffi2018.py",
+        generatedBy         = "galacticusDevTools/dataPreparation/stellarYields/convertLimongiChieffi2018.py",
         inputs              = inputs,
         notes               = [f"Explosion set {setName}: {sets[setName]['description']}.",
                                "Yields are net elemental yields in Solar masses, and may be negative.",

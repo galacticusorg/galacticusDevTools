@@ -180,7 +180,7 @@ def convert(engine, yieldPath, birthComposition, metallicity, outputDirectory, a
                                "(Lodders 2003, as used by the KEPLER progenitors) from VICE (Johnson 2019), "
                                f"MIT licensed, revision {viceRevision}"),
         transcriptionURL    = archiveURL,
-        generatedBy         = "galacticusDevTools/stellarYields/convertSukhbold2016.py",
+        generatedBy         = "galacticusDevTools/dataPreparation/stellarYields/convertSukhbold2016.py",
         inputs              = inputs,
         notes               = [f"Models 9.0-12.0 Msun use the Z9.6 calibration; above that, {engines[engine]}; "
                               "masses which do not explode contribute their wind only.",
