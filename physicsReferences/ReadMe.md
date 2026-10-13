@@ -205,6 +205,27 @@ difference of terms which cancel to leading order and a series expansion is need
 
 Requires `numpy` and `scipy`.
 
+### `exponentialDiskAccelerations.py`
+
+Independent reference values for the radial and vertical accelerations due to Galacticus'
+thick exponential disk (`massDistributionExponentialDisk`, with a sech² vertical profile), used
+by the "Acceleration matches reference values" group of `tests.mass_distributions.exe`. Both
+Galacticus and this script write the accelerations as Hankel transforms of the surface density
+multiplied by a vertical kernel K(k,z), the convolution of the vertical density profile with
+exp(−k|z|). Galacticus evaluates K as a Laplace-type integral over the offset from z; this script
+instead evaluates the convolution directly by quadrature over z′, so it shares none of the
+algebra used to derive Galacticus' form. It detected the error in Galacticus' former series
+expansion of the kernel, which put half of the disk mass in the sech² layer and half in a
+razor-thin sheet (galacticus issue #78).
+
+```
+./exponentialDiskAccelerations.py                      # table of reference values (h = 0.01)
+./exponentialDiskAccelerations.py --scaleHeight 0.137  # for another scale height
+./exponentialDiskAccelerations.py --fortran            # Fortran assignments, ready to paste
+```
+
+Requires `numpy` and `scipy`.
+
 ### `zhao1996DispersionCheck.py`
 
 Independent reference velocity dispersions for Galacticus' Zhao (1996) mass distribution, used
