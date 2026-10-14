@@ -43,7 +43,7 @@ def convert(model, source, outputDirectory, atomicData, cache):
         scienceURL          = "https://ui.adsabs.harvard.edu/abs/1999ApJS..125..439I",
         transcriptionSource = f"VICE (Johnson 2019), MIT licensed, revision {viceRevision}",
         transcriptionURL    = viceRepoURL,
-        generatedBy         = "galacticusDevTools/stellarYields/convertIwamoto1999.py",
+        generatedBy         = "galacticusDevTools/dataPreparation/stellarYields/convertIwamoto1999.py",
         inputs              = inputs,
         notes               = ["Yields are gross masses of each isotope ejected, in Solar masses.",
                                "Hydrogen and helium are excluded: the Galacticus reader sums all isotopes "

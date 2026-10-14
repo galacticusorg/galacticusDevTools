@@ -47,7 +47,7 @@ selectSF  = extra['bptclass'] == 1
 selectAGN = extra['bptclass'] == 4
 
 # Get git revision.
-repo         = Repo(".")
+repo         = Repo(os.path.dirname(os.path.abspath(__file__)),search_parent_directories=True)
 lastRevision = repo.head.object.hexsha
 
 # Star forming galaxies.
@@ -66,7 +66,7 @@ fluxes['sulfurII6733'   ] = lines['sii_6731_flux' ][selectSF]
 output = h5py.File(os.environ.get('GALACTICUS_DATA_PATH')+'/static/observations/emissionLines/emissionLineFluxesStarFormingSDSSDR8.hdf5','w')
 output.attrs['description'         ] = "Emission line fluxes of star forming galaxies from the SDSS DR8 catalog."
 output.attrs['referenceURL'        ] = "https://www.sdss4.org/dr14/spectro/galaxy_mpajhu/"
-output.attrs['createdBy'           ] = "https://github.com/galacticusorg/galacticusDevTools/blob/"+lastRevision+"/extractSDSSBPTData.py"
+output.attrs['createdBy'           ] = "https://github.com/galacticusorg/galacticusDevTools/blob/"+lastRevision+"/dataPreparation/extractSDSSBPTData.py"
 output.attrs['timeStamp'           ] = str(datetime.datetime.now())
 output.attrs['galSpecExtraChecksum'] = md5_checksum('galSpecExtra-dr8.fits')
 output.attrs['galSpecLineChecksum' ] = md5_checksum('galSpecLine-dr8.fits' )
@@ -89,7 +89,7 @@ fluxes['sulfurII6733'   ] = lines['sii_6731_flux' ][selectAGN]
 output = h5py.File(os.environ.get('GALACTICUS_DATA_PATH')+'/static/observations/emissionLines/emissionLineFluxesAGNSDSSDR8.hdf5','w')
 output.attrs['description'         ] = "Emission line fluxes of AGN from the SDSS DR8 catalog."
 output.attrs['referenceURL'        ] = "https://www.sdss4.org/dr14/spectro/galaxy_mpajhu/"
-output.attrs['createdBy'           ] = "https://github.com/galacticusorg/galacticusDevTools/blob/"+lastRevision+"/extractSDSSBPTData.py"
+output.attrs['createdBy'           ] = "https://github.com/galacticusorg/galacticusDevTools/blob/"+lastRevision+"/dataPreparation/extractSDSSBPTData.py"
 output.attrs['timeStamp'           ] = str(datetime.datetime.now())
 output.attrs['galSpecExtraChecksum'] = md5_checksum('galSpecExtra-dr8.fits')
 output.attrs['galSpecLineChecksum' ] = md5_checksum('galSpecLine-dr8.fits' )
