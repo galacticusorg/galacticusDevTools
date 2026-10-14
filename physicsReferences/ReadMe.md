@@ -207,10 +207,12 @@ Requires `numpy` and `scipy`.
 
 ### `exponentialDiskAccelerations.py`
 
-Independent reference values for the radial and vertical accelerations due to Galacticus'
-thick exponential disk (`massDistributionExponentialDisk`, with a sech² vertical profile), used
-by the "Acceleration matches reference values" group of `tests.mass_distributions.exe`. Both
-Galacticus and this script write the accelerations as Hankel transforms of the surface density
+Independent reference values for the radial and vertical accelerations, the potential, and the
+mid-plane rotation curve of Galacticus' thick exponential disk (`massDistributionExponentialDisk`,
+with a sech² vertical profile), used by the "Acceleration matches reference values", "Potential
+matches reference values" and "Rotation curve matches reference values" groups of
+`tests.mass_distributions.exe` (for scale heights 0.01 and 0.137). Both Galacticus and this script
+write these quantities as Hankel transforms of the surface density
 multiplied by a vertical kernel K(k,z), the convolution of the vertical density profile with
 exp(−k|z|). Galacticus evaluates K as a Laplace-type integral over the offset from z; this script
 instead evaluates the convolution directly by quadrature over z′, so it shares none of the

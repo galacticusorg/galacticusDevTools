@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent reference values for the accelerations due to a thick exponential disk.
+"""Independent reference values for the accelerations, potential, and rotation curve of a thick exponential disk.
 
 Galacticus' massDistributionExponentialDisk class tabulates the acceleration and tidal tensor of a
 disk with surface density Sigma(R) = exp(-R)/(2 pi) (unit mass, unit radial scale length, G = 1) and
@@ -12,7 +12,10 @@ the convolution of rho_z with the razor-thin kernel exp(-k|z|). The Hankel trans
 exponential surface density is (1+k^2)^(-3/2) / (2 pi), so that
 
     a_R(R,z) = - int_0^inf dk  k J_1(kR) K(k,z)    (1+k^2)^(-3/2) ,
-    a_z(R,z) =   int_0^inf dk    J_0(kR) dK/dz     (1+k^2)^(-3/2) .
+    a_z(R,z) =   int_0^inf dk    J_0(kR) dK/dz     (1+k^2)^(-3/2) ,
+    Phi(R,z) = - int_0^inf dk    J_0(kR) K(k,z)    (1+k^2)^(-3/2) ,
+
+and the mid-plane rotation curve is V_c^2(R) = -R a_R(R,0).
 
 Galacticus evaluates K(k,z) as a Laplace-type integral over the offset from the height z (see
 kernelVerticalDirect in source/mass_distributions/cylindrical/exponential_disk.F90). This script
@@ -26,8 +29,10 @@ negligible. It therefore shares none of the algebra used to derive Galacticus' f
 Hankel transforms are evaluated interval by interval between successive zeros of the Bessel function,
 stopping once an interval contributes less than 10^-9 of the running total.
 
-These values are used by the "Acceleration matches reference values" group of
-tests.mass_distributions.exe. They detected an error in the kernel previously used by Galacticus,
+These values are used by the "Acceleration matches reference values", "Potential matches reference
+values", and "Rotation curve matches reference values" groups of tests.mass_distributions.exe, which
+test disks with scale heights of 0.01 (the default here) and 0.137 (run with --scaleHeight 0.137). They
+detected an error in the kernel previously used by Galacticus,
 which placed half of the disk mass in the sech^2 layer and half in a razor-thin sheet (galacticus
 issue #78).
 
@@ -38,8 +43,11 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.special import j0, j1, jn_zeros
 
-# Default (R,z) points - those used by tests.mass_distributions.exe.
+# Default (R,z) points, and mid-plane radii - those used by tests.mass_distributions.exe.
 pointsDefault = ((1.0, 0.01), (1.0, 0.1), (0.5, 0.03), (2.0, 0.3))
+radiiDefault = (0.1, 0.5, 1.0, 2.2)
+# Points, below the smallest radius and/or height tabulated by Galacticus, at which only the potential is tested.
+pointsPotential = ((1.0, 0.0), (0.005, 0.005))
 
 
 def kernel(k, z, h):
@@ -73,6 +81,22 @@ def accelerations(R, z, h):
     return accelerationRadial, accelerationVertical
 
 
+def potential(R, z, h):
+    """Return the potential at (R,z) for a disk of scale height h."""
+    return hankel(lambda k: -kernel(k, z, h)[0]/(1.0+k*k)**1.5, j0, jn_zeros(0, 4000), R)
+
+
+def rotationCurve(R, h):
+    """Return the mid-plane rotation curve at radius R for a disk of scale height h."""
+    accelerationRadial = hankel(lambda k: -k*kernel(k, 0.0, h)[0]/(1.0+k*k)**1.5, j1, jn_zeros(1, 4000), R)
+    return np.sqrt(-R*accelerationRadial)
+
+
+def fortran(x):
+    """Format a number as a Fortran double precision literal."""
+    return f"{x:.8e}".replace('e', 'd')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--scaleHeight', type=float, default=0.01, help='disk scale height in units of the radial scale length (default: 0.01)')
@@ -81,14 +105,29 @@ def main():
     h = arguments.scaleHeight
     for R, z in pointsDefault:
         accelerationRadial, accelerationVertical = accelerations(R, z, h)
+        potential_ = potential(R, z, h)
         if arguments.fortran:
             print(f"           radiusCylindrical    ={R}d0")
             print(f"           height               ={z}d0")
-            fortranRadial = f"{accelerationRadial:.8e}".replace('e', 'd')
-            fortranVertical = f"{accelerationVertical:.8e}".replace('e', 'd')
-            print(f"           accelerationReference=[{fortranRadial},0.0d0,{fortranVertical}]")
+            print(f"           accelerationReference=[{fortran(accelerationRadial)},0.0d0,{fortran(accelerationVertical)}]")
+            print(f"           potentialReference   ={fortran(potential_)}")
         else:
-            print(f"h={h} R={R} z={z}  aR={accelerationRadial:.8e}  az={accelerationVertical:.8e}")
+            print(f"h={h} R={R} z={z}  aR={accelerationRadial:.8e}  az={accelerationVertical:.8e}  Phi={potential_:.8e}", flush=True)
+    for R, z in pointsPotential:
+        potential_ = potential(R, z, h)
+        if arguments.fortran:
+            print(f"           radiusCylindrical    ={R}d0")
+            print(f"           height               ={z}d0")
+            print(f"           potentialReference   ={fortran(potential_)}")
+        else:
+            print(f"h={h} R={R} z={z}  Phi={potential_:.8e}", flush=True)
+    for R in radiiDefault:
+        rotationCurve_ = rotationCurve(R, h)
+        if arguments.fortran:
+            print(f"           radius                 ={R}d0")
+            print(f"           rotationCurveReference ={fortran(rotationCurve_)}")
+        else:
+            print(f"h={h} R={R} z=0  Vc={rotationCurve_:.8e}", flush=True)
 
 
 if __name__ == '__main__':
