@@ -19,6 +19,30 @@ of the input FITS files, and a timestamp) as HDF5 attributes.
 Requires `numpy`, `h5py`, `astropy`, and `gitpython`, and the
 `GALACTICUS_DATA_PATH` environment variable.
 
+### `convertSKIRTOR.py`
+
+Converts the SKIRTOR library of AGN dusty torus SEDs (Stalevski et al. 2012,
+2016) into the HDF5 tabulation read by Galacticus' `dustAttenuationAGNTorusSKIRTOR`
+and `dustEmissionSpectrumAGNTorusSKIRTOR` classes:
+
+```
+convertSKIRTOR.py skirtor_2016-7-18.zip SKIRTOR_2016-7-18.hdf5
+```
+
+The zip archive, and the `total_dust_mass_2016-7-18.txt` file to be placed alongside
+it, are from the [SKIRTOR site](https://sites.google.com/site/skirtorus/sed-library).
+For each of the 1920 models and 10 inclinations it writes the line-of-sight
+transmission (direct/transparent), the scattered flux relative to the transparent
+flux averaged over directions, and the dust emission per unit accretion-disk
+luminosity, plus the dust emission averaged over directions. It checks that every
+model shares one wavelength grid and that the transparent flux follows the
+Netzer (1987) angular distribution SKIRTOR assumes. The output records its
+provenance (source URL, MD5 checksum of the zip, git revision of this script,
+and a timestamp) as HDF5 attributes. Galacticus looks for the result in
+`dust/agnTorus/` under the dynamic datasets path.
+
+Requires `numpy`, `h5py`, and `gitpython`.
+
 ### `stellarYields/`
 
 Converters that turn published stellar nucleosynthesis yield tables into the XML
