@@ -63,10 +63,13 @@ excluded_paths = {
 # These test suite parameter files exist precisely to record an outdated `lastModified` revision so
 # that the test suite can probe the handling of such files. They must never be migrated - doing so
 # would apply (and, on repeated runs, re-apply) migrations to their content while leaving their
-# recorded revision outdated.
+# recorded revision outdated. Similarly, `parameterMigration.xml` holds deliberately outdated content
+# which `testSuite/test-parameter-migration.py` migrates (from a fixed, old revision) and then checks -
+# migrating it here would remove the very content that test exercises.
 excluded_files = {
-    os.path.normpath(os.path.join("testSuite", "parameters", "strictOutdated.xml")),
-    os.path.normpath(os.path.join("testSuite", "parameters", "unstrictOutdated.xml")),
+    os.path.normpath(os.path.join("testSuite", "parameters", "strictOutdated.xml"     )),
+    os.path.normpath(os.path.join("testSuite", "parameters", "unstrictOutdated.xml"   )),
+    os.path.normpath(os.path.join("testSuite", "parameters", "parameterMigration.xml")),
 }
 
 for base_path in parameter_paths:
