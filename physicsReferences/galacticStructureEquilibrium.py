@@ -44,9 +44,15 @@ Conventions that must be matched for the comparison to be meaningful
   * Which radius is solved for. The disk's radius is the exponential scale length; the spheroid's is the
     Hernquist scale radius a.
   * The dark matter term in the rotation curve is spherical, G M_DM(<r)/r, where M_DM is the *contracted*
-    profile. The baryonic term is the rotation curve of the baryonic mass distribution, which for a
-    razor-thin exponential disk is the mid-plane Freeman curve, not G M(<r)/r. A composite mass
-    distribution adds rotation curves in quadrature.
+    profile. The baryonic term is the rotation curve of the baryonic mass distribution, which for the
+    disk is its mid-plane rotation curve, not G M(<r)/r. A composite mass distribution adds rotation curves
+    in quadrature.
+  * The disk is thick: Galacticus' exponential disk has a sech^2 vertical profile with a default scale
+    height of 0.137 scale lengths, which the companion test leaves at its default (`--scaleHeight`). Its
+    mid-plane rotation curve is computed here as a Hankel transform of the surface density, using the
+    closed form of the mid-plane vertical kernel (see `kernelMidplane`) - which Galacticus does not use, as it
+    evaluates the kernel numerically at all heights. With `--scaleHeight 0` the razor-thin (Freeman 1970)
+    curve is used instead.
   * Gnedin et al. (2004) contraction. The orbit-averaged radius is rbar(r) = A r_vir (r/r_vir)^omega
     with A = 0.8, omega = 0.77 (Galacticus' defaults, with `radiusFractionalPivot` = 1). The initial
     radius r_i at final radius r_f solves
@@ -64,16 +70,20 @@ Output
 ------
 With no arguments the script prints the reference table. With `--fortran` it prints the same numbers as
 Fortran array initializers ready to paste into `source/tests/galactic_structure_equilibrium.F90`, and
-with `--tolerance` it reports the sensitivity of each solution to the Bessel-factor tabulation that
-Galacticus interpolates, which is what sets the achievable agreement.
+with `--tolerance` it reports the sensitivity of each solution to the tabulation of the disk rotation
+curve that Galacticus interpolates.
 
-Andrew Benson, Claude (16-September-2026).
+Andrew Benson, Claude (16-September-2026; thick disk added 15-October-2026).
 """
 
 import argparse
+import sys
+from multiprocessing import Pool
 import numpy as np
+from scipy.integrate import quad
+from scipy.interpolate import CubicSpline
 from scipy.optimize import brentq
-from scipy.special import i0e, i1e, k0e, k1e
+from scipy.special import digamma, i0e, i1e, j1, jn_zeros, k0e, k1e, roots_laguerre
 
 # Newton's constant in Galacticus' internal unit system: Msun, Mpc, km/s.
 gravitationalConstant = 4.3011827419096073e-9
@@ -143,10 +153,94 @@ def besselFactorExact(halfRadius):
 besselFactorActive = besselFactorExact
 
 
+# The vertical scale height of the disk, in units of its radial scale length. Galacticus' exponential disk
+# has a sech^2 vertical profile with a default scale height of 0.137 scale lengths, which the companion test
+# leaves at its default. A scale height of zero selects the razor-thin disk.
+scaleHeight = 0.137
+
+# Gauss-Laguerre nodes and weights, used to evaluate the mid-plane vertical kernel at large wavenumber.
+laguerreNodes, laguerreWeights = roots_laguerre(80)
+
+# Zeros of J_1, which delimit the intervals over which the Hankel transform is integrated.
+besselJ1Zeros = jn_zeros(1, 20000)
+
+
+def kernelMidplane(wavenumber, height):
+    """The vertical kernel in the mid-plane of a disk with a sech^2 vertical profile of scale height h,
+
+        K(k,0) = int dz rho_z(z) exp(-k|z|) = int_0^inf du sech^2(u) exp(-a u),  a = k h,
+
+    with rho_z(z) = sech^2(z/h)/(2h). This has the closed form K = 1 - a beta(1 + a/2), where
+    beta(x) = [psi((x+1)/2) - psi(x/2)]/2 and psi is the digamma function. That form loses precision to
+    cancellation at large a, where K -> 1/a, so there the integral is instead evaluated by Gauss-Laguerre
+    quadrature after substituting t = a u."""
+    a = wavenumber * height
+    if a < 50.0:
+        return 1.0 - a * 0.5 * (digamma((a / 2.0 + 2.0) / 2.0) - digamma((a / 2.0 + 1.0) / 2.0))
+    return np.sum(laguerreWeights / np.cosh(laguerreNodes / a) ** 2) / a
+
+
+def rotationCurveSquaredThickDisk(radius):
+    """Mid-plane V_c^2 of a thick exponential disk of unit mass and unit scale length (G = 1), as the Hankel
+    transform
+
+        V_c^2(R) = R int_0^inf dk k J_1(kR) K(k,0) / (1+k^2)^(3/2),
+
+    integrated interval by interval between the zeros of J_1."""
+    integrand = lambda k: k * j1(k * radius) * kernelMidplane(k, scaleHeight) / (1.0 + k * k) ** 1.5
+    total = 0.0
+    low = 0.0
+    for i, zero in enumerate(besselJ1Zeros):
+        high = zero / radius
+        delta = quad(integrand, low, high, epsabs=0.0, epsrel=1.0e-11, limit=200)[0]
+        total += delta
+        low = high
+        if i > 10 and abs(delta) < 1.0e-12 * abs(total):
+            break
+    return radius * total
+
+
+# The thick-disk rotation curve is tabulated densely (200 points per decade) and interpolated with a cubic
+# spline in ln V_c^2 vs ln R. Beyond the table the disk is treated as a point mass (as in Galacticus, and
+# accurate to ~exp(-30)); below it V_c^2 is proportional to R^2.
+thickDiskRadiusMinimum = 1.0e-4
+thickDiskRadiusMaximum = 30.0
+thickDiskPointsPerDecade = 200
+
+
+def thickDiskTabulation(pointsPerDecade, radiusMinimum=thickDiskRadiusMinimum, radiusMaximum=thickDiskRadiusMaximum):
+    """Tabulate the thick-disk rotation curve, returning (ln R, ln V_c^2, spline)."""
+    count = int(np.log10(radiusMaximum / radiusMinimum) * pointsPerDecade) + 1
+    radii = np.geomspace(radiusMinimum, radiusMaximum, count)
+    with Pool() as pool:
+        rotationCurveSquared = np.array(pool.map(rotationCurveSquaredThickDisk, radii))
+    return np.log(radii), np.log(rotationCurveSquared), CubicSpline(np.log(radii), np.log(rotationCurveSquared), bc_type="natural")
+
+
+thickDiskTable = None
+
+
+def rotationCurveSquaredThickDiskInterpolated(radius, table=None):
+    """Mid-plane V_c^2 of a dimensionless thick disk, interpolated in a tabulation."""
+    lnRadii, lnRotationCurveSquared, spline = table if table is not None else thickDiskTable
+    if radius > np.exp(lnRadii[-1]):
+        return 1.0 / radius
+    if radius < np.exp(lnRadii[0]):
+        return np.exp(lnRotationCurveSquared[0]) * (radius / np.exp(lnRadii[0])) ** 2
+    return np.exp(spline(np.log(radius)))
+
+
+# Which evaluation of the thick-disk rotation curve is used. As for the Bessel factor, `--tolerance` rebinds
+# this to Galacticus' own (coarser) tabulation.
+rotationCurveSquaredThickDiskActive = rotationCurveSquaredThickDiskInterpolated
+
+
 def rotationCurveExponentialDisk(radius, mass, radiusScale):
-    """Mid-plane circular velocity of a razor-thin exponential disk."""
+    """Mid-plane circular velocity of an exponential disk - razor-thin if the scale height is zero."""
     if radius <= 0.0 or mass <= 0.0 or radiusScale <= 0.0:
         return 0.0
+    if scaleHeight > 0.0:
+        return np.sqrt(gravitationalConstant * (mass / radiusScale) * rotationCurveSquaredThickDiskActive(radius / radiusScale))
     return np.sqrt(
         2.0 * gravitationalConstant * (mass / radiusScale) * besselFactorActive(0.5 * radius / radiusScale)
     )
@@ -375,15 +469,23 @@ def besselTabulation():
 def reportTolerance(results):
     """Re-solve every model with the Bessel factor taken from the tabulation Galacticus interpolates,
     and report how far each equilibrium radius moves. This measures the agreement achievable between the
-    two calculations, and so justifies the companion test's tolerance."""
-    global besselFactorActive
-    tabulation = besselTabulation()
-
-    print("Sensitivity of the solved radii to the Bessel-factor tabulation Galacticus interpolates:")
+    two calculations, and so justifies the companion test's tolerance. For a thick disk the rotation curve
+    is instead taken from a tabulation matching Galacticus' own: 100 points per decade in radius, from 1e-4
+    to 30 scale lengths, interpolated with a cubic spline in ln V_c^2 vs ln R."""
+    global besselFactorActive, rotationCurveSquaredThickDiskActive
+    if scaleHeight > 0.0:
+        tabulationThick = thickDiskTabulation(100)
+        print("Sensitivity of the solved radii to the thick-disk rotation curve tabulation Galacticus interpolates:")
+    else:
+        tabulation = besselTabulation()
+        print("Sensitivity of the solved radii to the Bessel-factor tabulation Galacticus interpolates:")
     print(f"{'M_halo':>10} {'c':>6} {'spin':>6} {'d(r_disk)':>12} {'d(r_sph)':>12}")
     shiftMaximum = 0.0
     for result in results:
-        besselFactorActive = lambda halfRadius: besselFactorTabulated(halfRadius, tabulation)
+        if scaleHeight > 0.0:
+            rotationCurveSquaredThickDiskActive = lambda radius: rotationCurveSquaredThickDiskInterpolated(radius, tabulationThick)
+        else:
+            besselFactorActive = lambda halfRadius: besselFactorTabulated(halfRadius, tabulation)
         try:
             radiusDisk, radiusSpheroid = solveEquilibrium(
                 result["massHalo"],
@@ -395,6 +497,7 @@ def reportTolerance(results):
             )
         finally:
             besselFactorActive = besselFactorExact
+            rotationCurveSquaredThickDiskActive = rotationCurveSquaredThickDiskInterpolated
         shiftDisk = abs(radiusDisk / result["radiusDisk"] - 1.0)
         shiftSpheroid = abs(radiusSpheroid / result["radiusSpheroid"] - 1.0)
         shiftMaximum = max(shiftMaximum, shiftDisk, shiftSpheroid)
@@ -405,12 +508,29 @@ def reportTolerance(results):
     print(f"\nLargest fractional shift: {shiftMaximum:.3e}")
 
 
+def checkThickDiskTabulation():
+    """Confirm that interpolation in the dense thick-disk tabulation reproduces the directly integrated
+    rotation curve, at points midway between those tabulated, so that the tabulation may be treated as exact."""
+    lnRadii = thickDiskTable[0]
+    radiiMid = np.exp(0.5 * (lnRadii[:-1] + lnRadii[1:]))[::20]
+    with Pool() as pool:
+        exact = np.array(pool.map(rotationCurveSquaredThickDisk, radiiMid))
+    interpolated = np.array([rotationCurveSquaredThickDiskInterpolated(radius) for radius in radiiMid])
+    print(f"Thick disk (h = {scaleHeight}): largest fractional error in interpolated V_c^2 = {np.max(np.abs(interpolated / exact - 1.0)):.1e}", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--fortran", action="store_true", help="emit the reference values as Fortran array initializers")
-    parser.add_argument("--tolerance", action="store_true", help="report the sensitivity to the Bessel-factor tabulation")
+    parser.add_argument("--tolerance", action="store_true", help="report the sensitivity to the rotation curve tabulation")
+    parser.add_argument("--scaleHeight", type=float, default=0.137, help="disk scale height in units of its scale length; zero for a razor-thin disk (default: 0.137, Galacticus' default)")
     options = parser.parse_args()
 
+    global scaleHeight, thickDiskTable
+    scaleHeight = options.scaleHeight
+    if scaleHeight > 0.0:
+        thickDiskTable = thickDiskTabulation(thickDiskPointsPerDecade)
+        checkThickDiskTabulation()
     results = grid()
     if options.tolerance:
         reportTolerance(results)

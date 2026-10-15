@@ -267,15 +267,20 @@ solution rather than the algorithm. The module header lists the conventions deli
 from Galacticus, chiefly that the specific angular momentum handed to the solver is half of
 J/M, not J/M.
 
-`--tolerance` re-solves every model with the Bessel factor of the disk rotation curve replaced
-by the tabulated-and-interpolated form Galacticus uses, and reports how far the radii move;
-that measurement, 1.7e-5, is what justifies the companion test's tolerance. `--fortran` emits
-the reference values as Fortran array initializers.
+The disk is thick by default, with Galacticus' default scale height of 0.137 scale lengths. Its
+mid-plane rotation curve is a Hankel transform of the surface density, using a closed form for
+the mid-plane vertical kernel that Galacticus does not use. `--scaleHeight 0` selects the
+razor-thin (Freeman 1970) disk.
+
+`--tolerance` re-solves every model with the disk rotation curve replaced by the tabulated and
+interpolated form Galacticus uses, and reports how far the radii move. `--fortran` emits the
+reference values as Fortran array initializers.
 
 ```
 ./galacticStructureEquilibrium.py
 ./galacticStructureEquilibrium.py --tolerance
 ./galacticStructureEquilibrium.py --fortran
+./galacticStructureEquilibrium.py --scaleHeight 0   # razor-thin disk
 ```
 
 Requires `numpy` and `scipy`.
