@@ -85,6 +85,7 @@ The tools are grouped by purpose into the directories below. Each directory's
 
 * `extractSDSSBPTData.py` — Builds SDSS DR8 emission-line flux datasets for star-forming galaxies and AGN.
 * `convertSKIRTOR.py` — Converts the SKIRTOR AGN dusty torus SED library into the HDF5 tabulation Galacticus reads.
+* `convertCLUMPY.py` — Converts the CLUMPY AGN clumpy torus SED library into the orientation-averaged HDF5 tabulation Galacticus reads.
 * `stellarYields/` — Converts published stellar yield tables into the XML formats Galacticus reads.
 
 ## License

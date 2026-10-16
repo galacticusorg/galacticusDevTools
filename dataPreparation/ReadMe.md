@@ -43,6 +43,30 @@ and a timestamp) as HDF5 attributes. Galacticus looks for the result in
 
 Requires `numpy`, `h5py`, and `gitpython`.
 
+### `convertCLUMPY.py`
+
+Converts the CLUMPY library of AGN clumpy dusty torus SEDs (Nenkova et al. 2008a,b)
+into the HDF5 tabulation read by Galacticus' `dustEmissionSpectrumAGNTorusCLUMPY`
+class:
+
+```
+convertCLUMPY.py clumpy_models_201410_tvavg.hdf5 CLUMPY_201410_tvavg.hdf5
+```
+
+The input is the 1.2 GB file from the [CLUMPY site](https://www.clumpy.org/seds/).
+For each of its 124,740 models (N0, Y, q, sigma, tauV) it averages the torus
+spectrum (thermal emission plus scattered light, per unit AGN luminosity) over all
+directions, integrating over the cosine of inclination with the spectrum
+interpolated linearly in inclination, and writes it as one array indexed by the five
+parameters and wavelength, together with each model's covering fraction and its
+direction-averaged probability for the AGN to be seen unobscured. It checks that the
+library is a complete grid. The output records its provenance (source URL, MD5
+checksum of the input, git revision of this script, and a timestamp) as HDF5
+attributes. Galacticus looks for the result in `dust/agnTorus/` under the dynamic
+datasets path.
+
+Requires `numpy`, `h5py`, and `gitpython`.
+
 ### `stellarYields/`
 
 Converters that turn published stellar nucleosynthesis yield tables into the XML
