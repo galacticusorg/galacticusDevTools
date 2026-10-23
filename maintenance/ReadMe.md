@@ -17,15 +17,16 @@ stripped before the new one is written. The original file is preserved as a
 
 ### `migrateAllParameterFiles.py`
 
-Walks the `parameters`, `constraints`, and `testSuite` directories of a
-Galacticus checkout and runs `scripts/aux/parametersMigrate.py` on every XML
-parameter file in-place, so that all bundled parameter files are migrated to
+Runs `scripts/aux/parametersMigrate.py` in-place on the default parameter file
+(`parameters.xml`, at the root of a Galacticus checkout) and on every XML
+parameter file found by walking the `parameters`, `constraints`, and
+`testSuite` directories, so that all bundled parameter files are migrated to
 the current schema in a single pass. Files that are not Galacticus parameter
 files (no top-level `<parameters>` element) and a fixed set of excluded
-sub-directories (e.g. `testSuite/outputs`) are skipped. After migration the
-script also resets the `lastModified revision` recorded in the test suite's
-`strictOutdated.xml` and `unstrictOutdated.xml` files, which deliberately
-exercise the "outdated parameter file" code paths.
+sub-directories (e.g. `testSuite/outputs`) are skipped. The test suite's
+`strictOutdated.xml`, `unstrictOutdated.xml`, and `parameterMigration.xml` are
+also skipped: they are deliberately outdated, to exercise the "outdated
+parameter file" and migration code paths.
 
 Run from the root of a Galacticus checkout with `GALACTICUS_EXEC_PATH` set to
 the Galacticus executable directory.

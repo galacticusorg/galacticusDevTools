@@ -83,6 +83,43 @@ def parseIsotope(name):
         raise ValueError(f"unable to parse isotope name '{name}'")
     return match.group(1), int(match.group(2))
 
+# Stable isotopes, as {mass number: atomic numbers}, for mass numbers up to 70. Used by `decayProduct()` to place
+# short-lived isotopes that appear in network output (e.g. 26Al, 60Fe, 8B) under the element they decay to.
+# Potassium-40, with a half-life of 1.25 Gyr and a primordial abundance, is treated as stable.
+_stableIsobars = {
+     1: (1,),    2: (1,),    3: (2,),    4: (2,),    6: (3,),    7: (3,),    9: (4,),   10: (5,),   11: (5,),
+    12: (6,),   13: (6,),   14: (7,),   15: (7,),   16: (8,),   17: (8,),   18: (8,),   19: (9,),   20: (10,),
+    21: (10,),  22: (10,),  23: (11,),  24: (12,),  25: (12,),  26: (12,),  27: (13,),  28: (14,),  29: (14,),
+    30: (14,),  31: (15,),  32: (16,),  33: (16,),  34: (16,),  35: (17,),  36: (16, 18),          37: (17,),
+    38: (18,),  39: (19,),  40: (18, 19, 20),       41: (19,),  42: (20,),  43: (20,),  44: (20,),  45: (21,),
+    46: (20, 22),           47: (22,),  48: (20, 22),           49: (22,),  50: (22, 23, 24),       51: (23,),
+    52: (24,),  53: (24,),  54: (24, 26),           55: (25,),  56: (26,),  57: (26,),  58: (26, 28),
+    59: (27,),  60: (28,),  61: (28,),  62: (28,),  63: (29,),  64: (28, 30),           65: (29,),  66: (30,),
+    67: (30,),  68: (30,),  70: (30, 32),
+}
+
+def decayProduct(atomicNumber, massNumber):
+    """Return the atomic number of the stable nucleus which an isotope ultimately becomes.
+
+    Stellar yield tables from nuclear network calculations often list short-lived and radioactive isotopes (26Al,
+    60Fe, 22Na, ...) separately. Once ejected these decay, so their mass belongs to the element they decay to. A
+    neutron-rich isotope beta-decays upward in atomic number, and a proton-rich one downward, to the nearest
+    stable isobar. Mass number 8 has no stable isobar: 8B and 8Li decay through 8Be to two 4He nuclei. Free
+    neutrons decay to protons."""
+    if massNumber == 1:
+        return 1
+    if massNumber == 8:
+        return 2
+    if massNumber not in _stableIsobars:
+        raise ValueError(f"no stable isobar is known for mass number {massNumber}")
+    stable = _stableIsobars[massNumber]
+    if atomicNumber in stable:
+        return atomicNumber
+    # The nearest stable isobar in the direction of decay. An isotope lying between two stable isobars of the same
+    # mass number can, in principle, decay either way; the nearest is taken, which is what happens for those that
+    # occur in practice.
+    return min(stable, key=lambda z: (abs(z-atomicNumber), z))
+
 # Retain only metals (atomic number greater than 2). The Galacticus Type Ia reader sums every isotope present in
 # the file into the total metal yield, so hydrogen and helium must be excluded or the total is meaningless.
 def filterMetals(isotopes):

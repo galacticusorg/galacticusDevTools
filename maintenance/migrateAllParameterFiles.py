@@ -53,7 +53,53 @@ def check_revisions(tree, filepath, repo_path):
             "in the parameter file to reference a valid ancestor commit."
         )
 
+def migrate_file(filepath, exec_path):
+    """Migrate a single parameter file in place (ignoring any XML file which is not a parameter file)."""
+    # Parse XML and ignore any non-parameter files.
+    try:
+        parser = etree.XMLParser(resolve_entities=False, no_network=True)
+        tree = etree.parse(filepath, parser)
+    except etree.XMLSyntaxError:
+        return
+    if not tree.xpath("//parameters"):
+        return
+    # Ensure that any revision recorded in the file is known to git, so that migration can
+    # determine the ancestry of the file.
+    check_revisions(tree, filepath, exec_path)
+    tmp_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, dir=Path(filepath).parent)
+    try:
+        subprocess.run(
+            [
+                "./scripts/aux/parametersMigrate.py",
+                filepath,
+                tmp_file.name,
+                "--ignoreWhiteSpaceChanges", "yes",
+                "--validate", "no",
+                "--timeStamp", time_stamp,
+            ],
+            cwd=exec_path,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        os.unlink(tmp_file.name)
+        sys.exit(
+            f'ERROR: migration of parameter file "{filepath}" failed '
+            f"(parametersMigrate.py exited with status {e.returncode}) - see the output "
+            "above for details."
+        )
+    os.replace(tmp_file.name, filepath)
+
 # Migrate all files.
+exec_path = os.environ.get("GALACTICUS_EXEC_PATH")
+if not exec_path:
+    raise RuntimeError(
+        "GALACTICUS_EXEC_PATH is not set; set this environment variable "
+        "to the Galacticus executable directory before running "
+        "migrateAllParameterFiles.py."
+    )
+# Individual parameter files outside of the directories walked below (e.g. the default parameter file at the root of the
+# repository).
+parameter_files = ["parameters.xml"]
 parameter_paths = ["parameters", "constraints", "testSuite"]
 excluded_paths = {
     os.path.normpath(os.path.join("constraints", "parameters")),
@@ -71,6 +117,10 @@ excluded_files = {
     os.path.normpath(os.path.join("testSuite", "parameters", "unstrictOutdated.xml"   )),
     os.path.normpath(os.path.join("testSuite", "parameters", "parameterMigration.xml")),
 }
+
+for filepath in parameter_files:
+    if os.path.isfile(filepath):
+        migrate_file(filepath, exec_path)
 
 for base_path in parameter_paths:
     for dirpath, dirnames, filenames in os.walk(base_path):
@@ -94,44 +144,4 @@ for base_path in parameter_paths:
             # Ignore certain files.
             if os.path.normpath(filepath) in excluded_files:
                 continue
-            # Parse XML and ignore any non-parameter files.
-            try:
-                parser = etree.XMLParser(resolve_entities=False, no_network=True)
-                tree = etree.parse(filepath, parser)
-            except etree.XMLSyntaxError:
-                continue
-            if not tree.xpath("//parameters"):
-                continue
-            # Migrate the parameter file.
-            exec_path = os.environ.get("GALACTICUS_EXEC_PATH")
-            if not exec_path:
-                raise RuntimeError(
-                    "GALACTICUS_EXEC_PATH is not set; set this environment variable "
-                    "to the Galacticus executable directory before running "
-                    "migrateAllParameterFiles.py."
-                )
-            # Ensure that any revision recorded in the file is known to git, so that migration can
-            # determine the ancestry of the file.
-            check_revisions(tree, filepath, exec_path)
-            tmp_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, dir=Path(filepath).parent)
-            try:
-                subprocess.run(
-                    [
-                        "./scripts/aux/parametersMigrate.py",
-                        filepath,
-                        tmp_file.name,
-                        "--ignoreWhiteSpaceChanges", "yes",
-                        "--validate", "no",
-                        "--timeStamp", time_stamp,
-                    ],
-                    cwd=exec_path,
-                    check=True,
-                )
-            except subprocess.CalledProcessError as e:
-                os.unlink(tmp_file.name)
-                sys.exit(
-                    f'ERROR: migration of parameter file "{filepath}" failed '
-                    f"(parametersMigrate.py exited with status {e.returncode}) - see the output "
-                    "above for details."
-                )
-            os.replace(tmp_file.name, filepath)
+            migrate_file(filepath, exec_path)

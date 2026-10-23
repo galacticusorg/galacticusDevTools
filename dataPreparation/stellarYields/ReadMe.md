@@ -119,9 +119,11 @@ Z = 0.0149438 confirms the identification, and the script rejects a composition 
 
 Sukhbold et al. computed at a single metallicity, and each model is written twice, at two bracketing
 metallicities with identical yields. That states explicitly that the yields do not depend on metallicity — and
-it is also what makes them usable at all.
+it was originally what made them usable at all. (Galacticus now interpolates ejected masses and yields along
+initial mass at each tabulated metallicity, taking the nearest tabulated metallicity beyond the range, so a single
+metallicity would work equally well; the bracketing is kept as it is harmless and explicit. The history follows.)
 
-The irregular two-dimensional interpolation in `stellarAstrophysicsFile` extrapolates badly when the requested
+The irregular two-dimensional interpolation formerly used by `stellarAstrophysicsFile` extrapolated badly when the requested
 metallicity lies outside the range spanned by the tabulated points *at the relevant masses*, and for a table at
 one metallicity that is almost always the case. Written at a single metallicity these models give 11.4× the
 expected metal yield when combined with Heger & Woosley (2002), zero without it, and hang the IMF integration
@@ -134,6 +136,91 @@ Use `--metallicity-bracket` to change the two values. They need to span any meta
 The converted data themselves are correct either way — the IMF-weighted metal yield is 0.0156 against 0.0290 for
 Portinari, Chiosi & Bressan (1998), exactly as expected when roughly half the models collapse entirely, and the
 interleaved islands of explodability are reproduced with 99 of 200 models ejecting only their wind.
+
+### `convertKarakas2010.py`
+
+Converts the Karakas (2010; MNRAS; 403; 1413) asymptotic giant branch (AGB) models — 1–6 M☉ (6.5 M☉ at Z = 0.02)
+at Z = 0.02, 0.008, 0.004 and 0.0001 — into `stellarPropertiesKarakas2010.xml`:
+
+```
+./convertKarakas2010.py
+```
+
+These replace the Marigo (2001) AGB models of the standard compilation, which stop at Z = 0.004 and give yields of
+C, N and O only. The tables (A2–A5) are read from the CDS copy of the paper, `J/MNRAS/403/1413`. Four features of
+the source data are handled:
+
+- Yields are tabulated per **isotope**, including short-lived and radioactive species (²⁶Al in both its ground and
+  isomeric states, ⁶⁰Fe, ²²Na, ⁸B, …). Each is credited to the element it decays to, using `decayProduct()` in
+  the shared module.
+- The species **`g`** is the summed abundance of ⁶⁴Ni to Bi, the network's proxy for the s-process. It counts
+  towards the total metal yield but cannot be attributed to an element.
+- The **6 M☉, Z = 0.0001 model is tabulated twice**, distinguished only by its final mass: once with the VW93
+  mass-loss rate used for the rest of the grid (final mass 1.006 M☉), once with the Reimers rate (1.008 M☉), per
+  note 1 of the CDS ReadMe. The VW93 model is used.
+- **Free neutrons** are listed as the species `n`, which is also the element symbol of nitrogen, so species are
+  matched by their full name, not by element symbol.
+
+No lifetimes are tabulated. The ejected mass is the initial minus the final mass.
+
+#### Sanity check
+
+Mass conservation is asserted for every model: the net yields summed over all species vanish (to 1×10⁻⁵ of the
+ejected mass in practice), and the wind mass implied by the table equals the initial minus final mass (to 2×10⁻⁴).
+The converted iron yield of each model equals the sum of the net yields of the *stable* iron isotopes exactly,
+the radioactive ones (⁵⁵Fe, ⁵⁹Fe, ⁶⁰Fe, ⁶¹Fe) having been moved to Mn, Co and Ni. IMF-weighted, these AGB models
+yield roughly half the carbon of Marigo (2001) at low metallicity, and essentially no oxygen or iron.
+
+### `convertDoherty2014.py`
+
+Converts the Doherty et al. (2014a; MNRAS; 437; 195 — paper II, Z = 0.02, 0.008, 0.004) and (2014b; MNRAS; 441;
+582 — paper III, Z = 0.001, 0.0001) super- and massive-AGB models of 6.5–9 M☉ into
+`stellarPropertiesDoherty2014.xml`:
+
+```
+./convertDoherty2014.py                    # models below 8 Msun
+./convertDoherty2014.py --mass-maximum 9.5 # all models
+```
+
+These fill the range between the AGB and massive star models, where the standard compilation has no stellar
+models at all. The tables are read from the online material on the first author's web site. As with Karakas
+(2010), isotopes are summed into elements with radioactive species credited to their decay products, and the
+s-process proxy `g` contributes to the metal yield only. Two further choices are made:
+
+- Each table gives a **standard** set of yields, in which the envelope remaining when the calculation stopped is
+  expelled with the composition of the last computed model, and an **"E-"** set adding extrapolated thermal
+  pulses. The standard set is used, as recommended by the authors. Both papers' VW93 mass-loss tables are used,
+  matching Karakas (2010).
+- The grid's upper mass rises with metallicity, from 7.5 M☉ at Z ≤ 0.001 to 9 M☉ at Z = 0.02. Galacticus does
+  not interpolate yields across its `initialMassForSupernovaeTypeII` parameter (8 M☉ by default), and treats stars
+  above it as supernova progenitors, so **models at or above `--mass-maximum`** (default 8 M☉) are excluded and
+  named in the provenance. If a model sets a higher `initialMassForSupernovaeTypeII`, regenerate the file with a
+  matching `--mass-maximum`.
+
+The ejected mass is the sum of the tabulated masses expelled of each species. No lifetimes or final masses are
+tabulated.
+
+#### Sanity check
+
+The net yields sum to zero to within 2×10⁻⁴ of the ejected mass for every model, and the remnant mass implied by
+the ejected mass lies between 0.95 and 1.23 M☉, as expected for the oxygen-neon white dwarfs these stars leave;
+both are asserted.
+
+#### The combined compilation
+
+`stellarPropertiesCompilationKarakas2010Doherty2014LimongiChieffi2018.xml` in the datasets repository combines
+these with the Limongi & Chieffi (2018) massive stars (set M, non-rotating), the Heger & Woosley (2002) pair
+instability supernovae, and the Portinari, Chiosi & Bressan (1998) and Tumlinson, Shull & Venkatesan (2003)
+lifetimes. Compared with `stellarPropertiesCompilationLimongiChieffi2018.xml`, which differs only in using Marigo
+(2001) for intermediate mass stars, an isolated star-forming disk produces 4.6% fewer metals but the same iron to
+0.2% — AGB stars neither make nor destroy iron — which the Galacticus test
+`test-stellar-properties-Karakas2010Doherty2014.py` checks.
+
+Note that no metallicity has both intermediate-mass and massive star models: Karakas (2010) and Doherty et al.
+(2014) use Z = 0.0001…0.02, while Limongi & Chieffi (2018) use Z = 3.2×10⁻⁵…0.01345. Ejected masses between the
+7.5 M☉ upper limit of the super-AGB models and the 13 M☉ lower limit of the massive stars are therefore taken from
+the only table that spans them, the Z = 0 Heger & Woosley (2002) curve. Its values there (6.7, 8.5 and 10.4 M☉
+at 8, 10 and 12 M☉) are close to the initial mass minus that of a neutron star, as they should be.
 
 ### `splitPortinariChiosiBressan1998.py`
 
