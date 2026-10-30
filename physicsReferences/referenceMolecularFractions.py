@@ -18,9 +18,14 @@
 #    with sigma_star = sqrt(pi G h_star Sigma_star) for a stellar scale height h_star. The star formation
 #    rate surface density then follows the Leroy et al. (2008) form used by Galacticus,
 #
-#        SigmaDot_star = nu_SF f_H2 Sigma_H,  nu_SF = nu_0 [1 + (Sigma_H/Sigma_0)^q],
+#        SigmaDot_star = nu_SF f_H2 Sigma_gas,  nu_SF = nu_0 [1 + (Sigma_H/Sigma_0)^q],
 #
-#    where Sigma_H = X_H Sigma_gas is the hydrogen surface density.
+#    where Sigma_gas is the surface density of all gas and Sigma_H = X_H Sigma_gas is the hydrogen surface
+#    density. The frequency nu_0 applies to the total molecular gas, f_H2 Sigma_gas, because the star formation
+#    efficiency of molecular gas of Leroy et al. (2008) is per unit molecular gas mass including helium: they
+#    include a factor of 1.36 for helium in their Sigma_H2 (their section 3 and appendix; e.g. Sigma_H2 =
+#    4.4 cos(i) I_CO(1-0), which is 3.2 for hydrogen alone with X_CO = 2e20). The surface density Sigma_0 of
+#    Bigiel et al. (2008), by contrast, refers to hydrogen only (their section 3), so is compared to Sigma_H.
 #
 #  * Krumholz, McKee & Tumlinson (2009; ApJ, 699, 850). Their eqn. (2) gives the molecular fraction,
 #
@@ -97,7 +102,7 @@ def rateSurfaceDensityBlitz2006(surfaceDensityGas,surfaceDensityStellar,metallic
     surfaceDensityHydrogen=hydrogenMassFraction(metallicityRelativeToSolar)*surfaceDensityGas
     frequency            =frequencyNormalization*(1.0+(surfaceDensityHydrogen/surfaceDensityCritical)**exponent)
     # Convert Msun/pc^2/yr to Msun/Gyr/Mpc^2.
-    return frequency*fractionMolecular*surfaceDensityHydrogen*1.0e21
+    return frequency*fractionMolecular*surfaceDensityGas*1.0e21
 
 def molecularFractionKrumholz2009(surfaceDensityGas,metallicityRelativeToSolar,clumpingFactor=5.0,fast=False):
     """Molecular fraction, eqn. (2) of Krumholz, McKee & Tumlinson (2009), for a total gas surface density
