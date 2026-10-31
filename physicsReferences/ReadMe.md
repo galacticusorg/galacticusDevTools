@@ -316,6 +316,23 @@ conventions, since that scheme is itself part of what is checked.
 
 Requires `numpy`, `scipy` and `h5py`.
 
+### `referenceGalliPallaH2Cooling.py`
+
+Independent reference values for the H–H₂ cooling function of Galli & Palla (1998), used by
+`tests.cooling_function_molecular_hydrogen_Galli_Palla.exe`: their low-density limit fit, the LTE
+rotational and vibrational cooling per molecule of Hollenbach & McKee (1979; eqns. 6.37 and
+6.38), and the combination Λ(LTE)/[1+n_cr/n(H)] in which n(H) is the density of *atomic*
+hydrogen. Gives the cooling rate per unit volume, and its logarithmic gradients with respect to
+density (at fixed composition) and temperature by finite differences, for half-atomic gas at
+three densities and temperatures. It checks its own low- and high-density limits on each run.
+Every expression is written from the papers.
+
+```
+./referenceGalliPallaH2Cooling.py
+```
+
+Requires nothing beyond the standard library.
+
 ### `hydrogenNetworkCheck.py`
 
 Independent reference values for Galacticus' primordial hydrogen chemistry network, used by
