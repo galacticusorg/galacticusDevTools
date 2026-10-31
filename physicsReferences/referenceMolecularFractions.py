@@ -93,7 +93,7 @@ def molecularFractionBlitz2006(pressure,pressureCharacteristic=3.5e4,pressureExp
     return ratioMolecular/(1.0+ratioMolecular)
 
 def rateSurfaceDensityBlitz2006(surfaceDensityGas,surfaceDensityStellar,metallicityRelativeToSolar,             \
-                                velocityDispersionGas=10.0,heightScaleStellar=None,                            \
+                                velocityDispersionGas=8.0, heightScaleStellar=None,                            \
                                 frequencyNormalization=5.25e-10,surfaceDensityCritical=200.0,exponent=0.4,      \
                                 pressureCharacteristic=3.5e4,pressureExponent=0.92):
     """Star formation rate surface density [Msun/Gyr/Mpc^2] for the Blitz & Rosolowsky (2006) law."""
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     massStellar               = 5.0e10  # Msun
     radiusScale               = 3.0e03  # pc
     metallicityRelativeToSolar= 1.0
-    velocityDispersionGas     =10.0     # km/s
+    velocityDispersionGas     =8.0      # km/s (the default of Galacticus, as assumed by Blitz & Rosolowsky 2006)
     heightToRadialScaleDisk   = 0.137
     heightScaleStellar        =heightToRadialScaleDisk*radiusScale
     print(f"Hydrogen mass fraction at Z/Z_sun = {metallicityRelativeToSolar}: {hydrogenMassFraction(metallicityRelativeToSolar):.10f}")
