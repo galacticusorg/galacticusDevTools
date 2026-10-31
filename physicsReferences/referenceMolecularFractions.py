@@ -30,7 +30,7 @@
 #  * Krumholz, McKee & Tumlinson (2009; ApJ, 699, 850). Their eqn. (2) gives the molecular fraction,
 #
 #        f_H2 = 1 - [1 + (3 s / (4 (1+delta)))^-5]^-1/5,
-#        s = ln(1 + 0.6 chi + 0.01 chi^2) / (0.04 Sigma_comp,0 Z'),
+#        s = ln(1 + 0.6 chi) / (0.04 Sigma_comp,0 Z'),
 #        chi = 0.77 (1 + 3.1 Z'^0.365),  delta = 0.0712 (0.1/s + 0.675)^-2.8,
 #
 #    with Sigma_comp = c Sigma_gas the surface density of a molecular complex, and their eqn. (10) the star
@@ -40,8 +40,12 @@
 #
 #    the exponent being -0.33 below the transition surface density and +0.33 above it. Sigma_gas is the
 #    *total* gas surface density in both, including helium (their eqn. 1 and the caption of their Fig. 1).
-#    Their eqn. (11) of McKee & Krumholz (2010) fast approximation, f_H2 = 1 - 0.75 s/(1+0.25 s) for s < 2,
-#    is also given here.
+#    The fast approximation of McKee & Krumholz (2010; ApJ, 709, 308), f_H2 = 1 - 0.75 s/(1+0.25 s) for
+#    s < 2 (and zero otherwise), is also given here, with s as defined in deriving it (their section on
+#    molecular mass fractions in atomic-molecular complexes, and their chi for a two-phase medium):
+#
+#        s = ln(1 + 0.6 chi + 0.01 chi^2) / (0.6 tau_c),  tau_c = 0.066 Sigma_comp,0 Z',
+#        chi = 3.1 (1 + 3.1 Z'^0.365) / 4.1.
 #
 # The disk is exponential, Sigma(R) = M/(2 pi R_d^2) exp(-R/R_d), which is what the unit test's
 # "exponentialDisk" mass distribution provides, but is computed here directly.
@@ -104,12 +108,19 @@ def rateSurfaceDensityBlitz2006(surfaceDensityGas,surfaceDensityStellar,metallic
     # Convert Msun/pc^2/yr to Msun/Gyr/Mpc^2.
     return frequency*fractionMolecular*surfaceDensityGas*1.0e21
 
+def sKrumholz2009(surfaceDensityComplex,metallicityRelativeToSolar,fast=False):
+    """The parameter s of Krumholz, McKee & Tumlinson (2009; eqn. 2) or, with `fast` set, of McKee & Krumholz (2010),
+    for a molecular complex surface density [Msun/pc^2]."""
+    if fast:
+        chi=3.1*(1.0+3.1*metallicityRelativeToSolar**0.365)/4.1
+        return math.log(1.0+0.6*chi+0.01*chi**2)/(0.6*0.066*surfaceDensityComplex*metallicityRelativeToSolar)
+    chi    =0.77*(1.0+3.1*metallicityRelativeToSolar**0.365)
+    return math.log(1.0+0.6*chi            )/(0.04       *surfaceDensityComplex*metallicityRelativeToSolar)
+
 def molecularFractionKrumholz2009(surfaceDensityGas,metallicityRelativeToSolar,clumpingFactor=5.0,fast=False):
     """Molecular fraction, eqn. (2) of Krumholz, McKee & Tumlinson (2009), for a total gas surface density
     [Msun/pc^2]. With `fast` set, the McKee & Krumholz (2010) approximation is used instead."""
-    chi                     =0.77*(1.0+3.1*metallicityRelativeToSolar**0.365)
-    surfaceDensityComplex   =clumpingFactor*surfaceDensityGas
-    s                       =math.log(1.0+0.6*chi+0.01*chi**2)/(0.04*surfaceDensityComplex*metallicityRelativeToSolar)
+    s                       =sKrumholz2009(clumpingFactor*surfaceDensityGas,metallicityRelativeToSolar,fast)
     if fast:
         return 1.0-0.75*s/(1.0+0.25*s) if s < 2.0 else 0.0
     delta                   =0.0712*(0.1/s+0.675)**-2.8
@@ -165,8 +176,7 @@ if __name__ == "__main__":
     for radiusRelative in (0.5,radiusTransitionRelative,1.0,2.0,3.0):
         radius            =radiusRelative*radiusScale
         surfaceDensityGas_=surfaceDensityExponential(massGas,radiusScale,radius)
-        chi               =0.77*(1.0+3.1*metallicityRelativeToSolar**0.365)
-        s                 =math.log(1.0+0.6*chi+0.01*chi**2)/(0.04*5.0*surfaceDensityGas_*metallicityRelativeToSolar)
+        s                 =sKrumholz2009(5.0*surfaceDensityGas_,metallicityRelativeToSolar)
         print(f"{radiusRelative:12.9f} {surfaceDensityGas_:20.13e} {s:20.13e} {molecularFractionKrumholz2009(surfaceDensityGas_,metallicityRelativeToSolar):20.13e} {rateSurfaceDensityKrumholz2009(surfaceDensityGas_,metallicityRelativeToSolar):20.13e} {molecularFractionKrumholz2009(surfaceDensityGas_,metallicityRelativeToSolar,fast=True):20.13e}")
     print()
     # The limiting cases tested by the unit test, in each of which the disk is compressed so that the gas becomes fully
