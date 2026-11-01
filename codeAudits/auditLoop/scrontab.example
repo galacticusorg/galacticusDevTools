@@ -1,0 +1,11 @@
+# Weekly unattended Galacticus audit, Saturday morning, ending before the 20:00 usage reset.
+# Install with `scrontab -e` and paste these lines (adjust the partition, resources and path).
+# The job's allocation is where builds and models run, so size it as for an interactive job:
+# about -j24 per 128 GB (machines.md).
+#SCRON --partition=dmtheory
+#SCRON --job-name=galacticus-audit
+#SCRON --cpus-per-task=32
+#SCRON --mem=128G
+#SCRON --time=13:00:00
+#SCRON --output=/scratch/abenson/auditwork/runs/scron-%j.out
+47 6 * * 6 $HOME/galacticusDevTools/codeAudits/auditLoop/runAudit.sh

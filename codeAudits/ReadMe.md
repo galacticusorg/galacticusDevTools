@@ -3,6 +3,10 @@
 Static analyses of a Galacticus checkout which look for inconsistencies across the code base.
 Both are heuristic: their findings are meant to be reviewed, not applied blindly.
 
+The [`auditLoop/`](auditLoop/ReadMe.md) directory holds the tooling for a recurring,
+unattended audit run by Claude Code: the `galacticus-audit` skill, file prioritization,
+finding and coverage tracking in a shared (Dropbox) state directory, and a usage gate.
+
 ### `classContractSweep.py`
 
 Sweeps a Galacticus checkout for ways in which implementations of one

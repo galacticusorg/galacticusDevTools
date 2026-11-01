@@ -66,6 +66,7 @@ The tools are grouped by purpose into the directories below. Each directory's
 
 * `classContractSweep.py` — Finds ways implementations of a `functionClass` disagree with each other or with their consumers.
 * `namingAudit.py` — Audits spelling and naming-convention consistency across the code base.
+* `auditLoop/` — A recurring, unattended audit: a Claude Code skill plus tools for prioritizing files, tracking findings and coverage, and gating runs on plan usage.
 
 ### [`maintenance/`](maintenance/ReadMe.md) — maintenance
 
