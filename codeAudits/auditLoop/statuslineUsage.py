@@ -19,6 +19,13 @@ Install in ~/.claude/settings.json:
     "statusLine": {"type": "command", "command": "/path/to/statuslineUsage.py"}
 
 Usage is per account, so any session on the machine keeps the file fresh.
+
+Diagnosis: with `AUDIT_STATUSLINE_DEBUG=1` (in the `env` block of settings.json),
+every call also saves its raw input, with the time, to `last-input.json` beside
+the usage file, whether or not it held `rate_limits`. If that file never
+appears, Claude Code is not running the status line (for example in `-p`
+mode); if it appears without `rate_limits`, this Claude Code version or
+account does not send them.
 """
 import json
 import os
@@ -56,8 +63,20 @@ def short_line(limits):
     return " · ".join(parts)
 
 
+def save_debug(raw):
+    path = os.path.join(os.path.dirname(os.path.abspath(usage_file())), "last-input.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as stream:
+        json.dump({"received": time.time(), "argv": sys.argv, "stdin": raw}, stream)
+
+
 def main():
     raw = sys.stdin.read()
+    if os.environ.get("AUDIT_STATUSLINE_DEBUG"):
+        try:
+            save_debug(raw)
+        except Exception:
+            pass
     limits = None
     try:
         limits = record(json.loads(raw))

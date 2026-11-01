@@ -493,3 +493,14 @@ def test_statusline_ignores_readings_without_a_weekly_window(tmp_path):
                        env=environment, cwd=str(tmp_path), stdout=subprocess.PIPE, universal_newlines=True,
                        check=True)
     assert "seven_day" in json.load(open(str(tmp_path / usage)))["rate_limits"]
+
+
+def test_statusline_debug_saves_raw_input(tmp_path):
+    usage = str(tmp_path / "cache" / "usage.json")
+    environment = dict(os.environ, AUDIT_USAGE_FILE=usage, AUDIT_STATUSLINE_DEBUG="1")
+    environment.pop("AUDIT_STATUSLINE_NEXT", None)
+    subprocess.run([sys.executable, os.path.join(TOOLS, "statuslineUsage.py")], input='{"model": {}}',
+                   env=environment, stdout=subprocess.PIPE, universal_newlines=True, check=True)
+    saved = json.load(open(str(tmp_path / "cache" / "last-input.json")))
+    assert saved["stdin"] == '{"model": {}}'
+    assert not os.path.exists(usage)

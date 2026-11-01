@@ -63,6 +63,23 @@ claude -p "say hi"
   interactively in a private tmux server (`tmux -L galacticus-audit`), where the status line
   certainly runs, and ends it when the skill writes its done file.
 
+If no usage data appears, find out which link is missing:
+
+1. **The script itself:**
+   `echo '{"rate_limits":{"seven_day":{"used_percentage":1,"resets_at":2}}}' | ./statuslineUsage.py`
+   should print `7d 1%` and write the usage file. If it doesn't, check that the file is
+   executable and that its `python3` runs it.
+2. **Whether Claude Code calls it:** add `"AUDIT_STATUSLINE_DEBUG": "1"` to the `env` block of
+   `~/.claude/settings.json`, then start `claude` *interactively* and send one message.
+   - `~/.cache/claude-usage/last-input.json` appears: the status line runs. Look for
+     `rate_limits` in the saved `stdin`.
+   - It never appears: the status line is not running at all (check the `statusLine` entry,
+     and whether a project or managed settings file overrides it).
+3. **What it is given:** if the input has no `rate_limits`, check `claude --version` (the
+   field is recent) and `claude auth status`. The field is sent only for claude.ai
+   subscription logins, not API keys, and only after the first response.
+4. **Interactive works but `-p` doesn't:** use `AUDIT_MODE=tmux`.
+
 In tmux mode, nothing can answer a dialog. Before the first scheduled run, start `claude`
 interactively once in `$AUDIT_REPO` and in `$AUDIT_WORKDIR/wt/audit`, and accept the
 folder-trust prompt. Then check that the permission mode in `AUDIT_CLAUDE_ARGS` starts
