@@ -11,10 +11,10 @@ AUDIT_WORKDIR=/scratch/abenson/auditwork
 # Shared state (findings, coverage, claims, INDEX.md), synced by Dropbox.
 AUDIT_STATE_DIR=$HOME/Dropbox/AI/audit
 
-# headless: claude -p. tmux: an interactive session in a private tmux server, for when the
-# statusLine (and so the usage data) does not update in -p mode. Test which works first
-# (ReadMe.md, "Checking that usage data reaches the gate").
-AUDIT_MODE=headless
+# tmux: an interactive session in a private tmux server. headless: claude -p. Use tmux unless
+# the statusLine (the only source of usage data) runs in -p mode; on obshpc it does not
+# (checked 2026-11-01). See ReadMe.md, "Checking that usage data reaches the gate".
+AUDIT_MODE=tmux
 
 # Hard stop: AUDIT_STOP_AT today (local time), or AUDIT_HOURS after the start, whichever is first.
 # The weekly reset is 20:00 on Saturday; stop an hour before it.

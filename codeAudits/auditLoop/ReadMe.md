@@ -58,7 +58,9 @@ claude -p "say hi"
 ./usageGate.py status
 ```
 
-- If `status` prints the usage, keep `AUDIT_MODE=headless`.
+- If `status` prints the usage, `AUDIT_MODE=headless` will work. On obshpc it does not
+  (checked 2026-11-01: interactive sessions get `rate_limits`, but `-p` never runs the status
+  line), so the config template defaults to tmux.
 - If it reports no usage data, set `AUDIT_MODE=tmux`: the launcher then runs each session
   interactively in a private tmux server (`tmux -L galacticus-audit`), where the status line
   certainly runs, and ends it when the skill writes its done file.
