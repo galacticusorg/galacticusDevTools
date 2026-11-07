@@ -37,6 +37,7 @@ The tools are grouped by purpose into the directories below. Each directory's
 
 * `massDistributionProfilesCheck.py` — Einasto and Burkert profiles, by numerical integration of the density.
 * `exponentialDiskAccelerations.py` — Accelerations, potential and mid-plane rotation curve of a thick (sech²) exponential disk, by direct convolution of the vertical profile.
+* `exponentialDiskTidalHeated.py` — Potential and accelerations, away from the mid-plane, of a tidally truncated and heated exponential disk, as a superposition of log-normally spread rings.
 * `zhao1996DispersionCheck.py` — Zhao (1996) velocity dispersions, by numerical solution of the Jeans equation.
 * `galacticStructureEquilibrium.py` — Equilibrium radii of a disk and spheroid in an adiabatically contracting NFW halo.
 * `mergersInstabilitiesPhysics.py` — Bar instability criterion and timescale, and the Cole et al. (2000) merger remnant size.

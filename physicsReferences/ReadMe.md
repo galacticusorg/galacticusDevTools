@@ -228,6 +228,32 @@ razor-thin sheet (galacticus issue #78).
 
 Requires `numpy` and `scipy`.
 
+### `exponentialDiskTidalHeated.py`
+
+Independent reference values for the potential and the radial and vertical accelerations, away from
+the mid-plane and inside the truncation radius, of Galacticus' tidally truncated and heated
+exponential disk (`massDistributionExponentialDiskTidal`), used by the "Truncated and heated disk,
+away from the mid-plane" group of `tests.mass_distributions.exponential_disk_tidal.exe` (for x = 1,
+s = 0.1 and 0.3). Galacticus approximates this field as the scaled field of the untruncated disk,
+multiplied by corrections tabulated on a coarse grid of truncation and heating. This script instead
+writes the Hankel transform of the heated surface density as that of a superposition of rings,
+each spread in radius with a log-normal distribution (averaged by Gauss-Hermite quadrature for
+narrow rings, and summed on a fine linear grid of radius for wide ones), and evaluates the field
+directly, with the vertical kernel computed by quadrature of the convolution. Galacticus convolves
+the surface density on a logarithmic grid of radii and transforms it with FFTLog, so the two share
+no numerical method. With `--heating 0` it reproduces the direct-integration reference of the
+test's truncated, unheated disk to better than 10⁻⁴; `--converge` shows its values change by less
+than 10⁻⁸ when every resolution is doubled. It takes a minute or two (several with `--converge`).
+
+```
+./exponentialDiskTidalHeated.py                     # table of reference values (x = 1, s = 0.1 and 0.3)
+./exponentialDiskTidalHeated.py --heating 0         # the truncated, unheated disk
+./exponentialDiskTidalHeated.py --fortran           # Fortran array constructors, ready to paste
+./exponentialDiskTidalHeated.py --converge          # also repeat at twice the resolution
+```
+
+Requires `numpy` and `scipy`.
+
 ### `zhao1996DispersionCheck.py`
 
 Independent reference velocity dispersions for Galacticus' Zhao (1996) mass distribution, used
