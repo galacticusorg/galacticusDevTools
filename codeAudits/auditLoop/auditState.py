@@ -406,6 +406,10 @@ def command_sync(arguments):
         counts = diff_lines(arguments.repo, arguments.base, branch)
         if fields.get("diff_lines") != counts:
             changes.append(("diff_lines", counts))
+        mismatch = complexity_mismatch(dict(fields, diff_lines=counts))
+        if mismatch:
+            print("{}: complexity {} for {} changed source lines: check the label "
+                  "(it sets the review order)".format(fields["id"], mismatch, counts["source"]))
         if not fields.get("base"):
             print("{}: no recorded base, so a merge can not be told from an empty branch: "
                   "set base=<fork commit>".format(fields["id"]))
@@ -479,6 +483,30 @@ def cell(value):
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
+# Source lines changed (added + deleted) up to which each complexity label is plausible; the
+# skill's rubric is S <= ~30, M <= ~100. Some slack, so only a clear mismatch is flagged.
+COMPLEXITY_LIMITS = (("S", 45), ("M", 150))
+
+
+def complexity_from_size(counts):
+    """The complexity label the source diff size suggests, or None without a diff."""
+    if not counts or counts.get("source") is None:
+        return None
+    for label, limit in COMPLEXITY_LIMITS:
+        if counts["source"] <= limit:
+            return label
+    return "L"
+
+
+def complexity_mismatch(fields):
+    """A note when the label is lower than the staged diff suggests (a larger label is fine:
+    it may reflect physics or design context the diff size does not show)."""
+    label, suggested = fields.get("complexity"), complexity_from_size(fields.get("diff_lines"))
+    if label in COMPLEXITY_RANK and suggested and COMPLEXITY_RANK[suggested] > COMPLEXITY_RANK[label]:
+        return "{} (size suggests {})".format(label, suggested)
+    return None
+
+
 def size(fields):
     counts = fields.get("diff_lines")
     if not counts:
@@ -507,12 +535,12 @@ def command_index(arguments):
 
     queue = review_order(by_status.get("ready-for-review", []))
     lines += ["## Ready for Andrew (review order: easiest first, stacked branches after their parents)", "",
-              "| # | Finding | Severity | Size (src/tests) | Branch @ head | Depends on | Questions |",
-              "|---|---|---|---|---|---|---|"]
+              "| # | Finding | Severity | Complexity | Size (src/tests) | Branch @ head | Depends on | Questions |",
+              "|---|---|---|---|---|---|---|---|"]
     for number, fields in enumerate(queue, start=1):
-        lines.append("| {} | [{}](findings/{}.md) {} | {} | {} | `{}` @ `{}` | {} | {} |".format(
+        lines.append("| {} | [{}](findings/{}.md) {} | {} | {} | {} | `{}` @ `{}` | {} | {} |".format(
             number, fields["id"], fields["id"], cell(fields.get("title")), cell(fields.get("severity")),
-            size(fields), cell(fields.get("branch")), cell(fields.get("head")), cell(fields.get("depends_on")),
+            cell(complexity_mismatch(fields) or fields.get("complexity")), size(fields), cell(fields.get("branch")), cell(fields.get("head")), cell(fields.get("depends_on")),
             cell(fields.get("questions_for_andrew"))))
     lines.append("")
 

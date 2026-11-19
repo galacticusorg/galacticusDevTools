@@ -170,6 +170,15 @@ and send the raw output back to the same agent with `SendMessage` (load it with 
 `select:SendMessage`). It returns `confirmed`, `plausible` or `refuted` for each candidate,
 with the evidence.
 
+A requested check that settles a finding after it has been recorded, for example one run in
+a later iteration, must update the finding too, not just add a note:
+- if it confirms, set `confidence=confirmed`;
+- if it refutes, set `status=rejected`;
+- if it changes the size of the effect, update `severity`.
+
+Use `state finding set F-… confidence=confirmed --note "<what the check showed>"`, so the
+reason is in the history.
+
 ### 3.4 Record each surviving finding
 
 `state finding new` checks for open findings on the same files and prints a note for each
@@ -231,6 +240,9 @@ state finding set F-NNNN branch=audit/F-NNNN-short-slug base=${base:0:10}
    wrong, the evidence, how it was verified, and that it was found and fixed by an
    unattended Claude Code audit run.
 5. `state finding set F-NNNN status=fix-staged head=<sha>`, then fill in `## Fix and tests`.
+   Re-check `complexity` against the staged diff (`git diff --stat "$base"`, source lines,
+   tests excluded) and the rubric in 3.4. The label was set before the fix existed, and it
+   sets Andrew's review order. `state sync` flags a label that is too low for the diff.
 
 If a fix will not come together (the test can't be made to discriminate, or the build
 breaks in ways you can't resolve), delete the branch, leave the finding `verified` with

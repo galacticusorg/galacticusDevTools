@@ -635,3 +635,28 @@ def test_import_refresh_updates_titles_and_questions_but_not_edits(repo, state, 
     assert fields["questions_for_andrew"].startswith("Andrew's call (6b9726a7")
     again = run("importPlan.py", str(plan), "--repo", repo, "--write", "--refresh")
     assert "refreshed 0 finding(s)" in again.stdout
+
+
+def test_complexity_mismatch_is_flagged(repo, state):
+    import auditState
+    assert auditState.complexity_from_size({"source": 30, "tests": 400}) == "S"
+    assert auditState.complexity_from_size({"source": 67, "tests": 0}) == "M"
+    assert auditState.complexity_from_size({"source": 500, "tests": 0}) == "L"
+    assert auditState.complexity_mismatch({"complexity": "S", "diff_lines": {"source": 67}}) == "S (size suggests M)"
+    assert auditState.complexity_mismatch({"complexity": "M", "diff_lines": {"source": 20}}) is None  # higher is fine
+    assert auditState.complexity_mismatch({"complexity": "S"}) is None                              # no diff yet
+    git(repo, "checkout", "-q", "-b", "audit/F-0001-big")
+    with open(os.path.join(repo, "source/cooling/cole2000.F90"), "a") as stream:
+        stream.write("".join("! line {}\n".format(number) for number in range(60)))
+    git(repo, "commit", "-q", "-am", "big fix")
+    git(repo, "checkout", "-q", "master")
+    base = subprocess.run(["git", "-C", repo, "rev-parse", "master"], stdout=subprocess.PIPE,
+                          universal_newlines=True).stdout.strip()
+    identifier = run("auditState.py", "finding", "new", "--title", "x", "--severity", "high", "--category", "crash",
+                     "--file", "a", "--complexity", "S").stdout.strip()
+    run("auditState.py", "finding", "set", identifier, "status=ready-for-review", "branch=audit/F-0001-big",
+        "base=" + base[:10])
+    result = run("auditState.py", "sync", "--repo", repo, "--base", "master")
+    assert "complexity S (size suggests M) for 60 changed source lines" in result.stdout
+    run("auditState.py", "index")
+    assert "| S (size suggests M) | 60/0 |" in open(os.path.join(state, "INDEX.md")).read()
