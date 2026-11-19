@@ -99,8 +99,8 @@ unchanged, it does not start.
 ## How a run proceeds
 
 `runAudit.sh` works in this order:
-1. It sets a deadline: `AUDIT_STOP_AT` (19:00 by default, an hour before the Saturday 20:00
-   reset) or `AUDIT_HOURS` from now, whichever comes first.
+1. It sets a deadline: `AUDIT_STOP_AT` (18:00 by default: an hour before the Saturday reset at
+   19:00 PST, two before 20:00 PDT) or `AUDIT_HOURS` from now, whichever comes first.
 2. It fetches origin.
 3. It runs `usageGate.py preflight`, and does not start unless the weekly reset is within
    14 hours and at least 10% is free below the ceiling.

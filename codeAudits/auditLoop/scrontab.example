@@ -1,4 +1,5 @@
-# Weekly unattended Galacticus audit, Saturday morning, ending before the 20:00 usage reset.
+# Weekly unattended Galacticus audit, Saturday morning, ending before the Saturday-evening
+# usage reset (19:00 PST / 20:00 PDT; AUDIT_STOP_AT=18:00 in the config).
 # Install with `scrontab -e` and paste these lines (adjust the partition, resources and path).
 # The job's allocation is where builds and models run, so size it as for an interactive job:
 # about -j24 per 128 GB (machines.md).

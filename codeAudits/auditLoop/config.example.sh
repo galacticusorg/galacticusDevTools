@@ -28,8 +28,10 @@ AUDIT_MODE=tmux
 AUDIT_REFUSE_HOSTS="login*"
 
 # Hard stop: AUDIT_STOP_AT today (local time), or AUDIT_HOURS after the start, whichever is first.
-# The weekly reset is 20:00 on Saturday; stop an hour before it.
-AUDIT_STOP_AT=19:00
+# The weekly reset is on Saturday evening, at a fixed UTC time: 19:00 local in winter (PST) and
+# 20:00 in summer (PDT). 18:00 stops an hour before it in winter and two in summer. The usage
+# gate takes the reset time from the usage data itself, so only this hard stop needs it.
+AUDIT_STOP_AT=18:00
 AUDIT_HOURS=12
 
 # Usage gate. Do not start unless the weekly reset is within 14 h (catches a moved reset
