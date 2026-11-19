@@ -1,0 +1,58 @@
+# Configuration for runAudit.sh: copy to ~/.config/galacticus-audit/config.sh and edit.
+# Sourced by bash, so plain VAR=value lines.
+
+# The Galacticus checkout that holds the local audit branches (never pushed).
+# Use a checkout dedicated to the audit, with working git hooks (see machines.md).
+AUDIT_REPO=/scratch/abenson/galacticus_audit
+
+# Scratch space: worktrees (one per branch), build logs, run logs, done files.
+AUDIT_WORKDIR=/scratch/abenson/auditwork
+
+# Shared state (findings, coverage, claims, INDEX.md), synced by Dropbox.
+AUDIT_STATE_DIR=$HOME/Dropbox/AI/audit
+
+# A command that syncs AUDIT_STATE_DIR with Dropbox, for machines with no Dropbox client.
+# Run before the run, after each segment and at the end (the skill also runs it). On obshpc,
+# reuse the memory sync script with the audit folder in place of the memory folder:
+AUDIT_STATE_SYNC="MEMORY_SYNC_REMOTE=claude-memory:AI/audit MEMORY_DIR=$HOME/Dropbox/AI/audit MEMORY_SYNC_STATE=$HOME/.local/state/claude-audit-sync bash $HOME/Dropbox/AI/memory/sync/claude_memory_sync.sh sync"
+# On a machine with the Dropbox client, leave it empty:
+# AUDIT_STATE_SYNC=""
+
+# tmux: an interactive session in a private tmux server. headless: claude -p. Use tmux unless
+# the statusLine (the only source of usage data) runs in -p mode; on obshpc it does not
+# (checked 2026-11-01). See ReadMe.md, "Checking that usage data reaches the gate".
+AUDIT_MODE=tmux
+
+# Hosts the launcher refuses to run on (shell patterns, space-separated): cluster login nodes,
+# where builds and models must not run. Empty allows any host.
+AUDIT_REFUSE_HOSTS="login*"
+
+# Hard stop: AUDIT_STOP_AT today (local time), or AUDIT_HOURS after the start, whichever is first.
+# The weekly reset is on Saturday evening, at a fixed UTC time: 19:00 local in winter (PST) and
+# 20:00 in summer (PDT). 18:00 stops an hour before it in winter and two in summer. The usage
+# gate takes the reset time from the usage data itself, so only this hard stop needs it.
+AUDIT_STOP_AT=18:00
+AUDIT_HOURS=12
+
+# Usage gate. Do not start unless the weekly reset is within 14 h (catches a moved reset
+# day) and at least 10% of the allowance is free below the ceiling. For a run on another day
+# (a trial), drop --require-reset-within-hours.
+AUDIT_PREFLIGHT_ARGS="--min-headroom 10 --require-reset-within-hours 14"
+# Options for every usageGate.py call (the reserve curve, the five-hour ceiling, the forecast
+# safety factor; see usageGate.py --help). Empty means the defaults: a ceiling of 80% until
+# 12 h before the reset, rising to 95% at 3 h before it.
+AUDIT_GATE_ARGS=""
+
+# Claude Code. The run is unattended, so permission prompts cannot be answered: choose a mode
+# that lets it build, run tests and commit without prompting, e.g. auto mode, or a --settings
+# file with an allowlist. Add --model here to pin a model.
+AUDIT_CLAUDE=claude
+AUDIT_CLAUDE_ARGS="--permission-mode auto"
+
+# Loop settings, passed to the skill.
+AUDIT_BACKLOG_MAX=25            # ready-for-review findings at which fix staging pauses
+AUDIT_JOBS=24                   # make -j (about 24 in a 128 GB job; see machines.md)
+AUDIT_LENSES=bugs,threading,units,physics
+
+# A python3 with lxml for the commit hooks (the obshpc conda python3 lacks it since 2026-10-31).
+AUDIT_PYTHON=/usr/bin/python3
