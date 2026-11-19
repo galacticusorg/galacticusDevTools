@@ -40,6 +40,7 @@ tools="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${AUDIT_PYTHON:=python3}"
 : "${AUDIT_GATE_ARGS:=}"
 : "${AUDIT_STATE_SYNC:=}"
+: "${AUDIT_REFUSE_HOSTS:=login*}"
 export AUDIT_STATE_SYNC AUDIT_STATE_DIR AUDIT_REPO AUDIT_WORKDIR AUDIT_BACKLOG_MAX AUDIT_JOBS AUDIT_LENSES AUDIT_GATE_ARGS AUDIT_PYTHON
 export AUDIT_TOOLS="$tools"
 
@@ -58,6 +59,18 @@ if [ -n "$AUDIT_STOP_AT" ]; then
     [ "$stop_at" -lt "$deadline" ] && deadline=$stop_at
 fi
 export AUDIT_DEADLINE=$deadline
+# Builds and models must not run on a cluster login node: refuse hosts matching AUDIT_REFUSE_HOSTS
+# (shell patterns, space-separated; empty to allow any host).
+for pattern in $AUDIT_REFUSE_HOSTS; do
+    # shellcheck disable=SC2254
+    case "$(hostname)" in
+        $pattern)
+            say "$(hostname) matches AUDIT_REFUSE_HOSTS ($pattern): run this inside a job on a compute node," \
+                "e.g. srun -p <partition> -c 32 --mem=128G -t 3:00:00 --pty bash. Not starting."
+            exit 2
+            ;;
+    esac
+done
 say "session $session on $(hostname), deadline $(date -d "@$deadline" '+%a %H:%M'), mode $AUDIT_MODE"
 if [ "$deadline" -le $(( now + 1800 )) ]; then
     say "less than 30 minutes before the deadline: not starting"

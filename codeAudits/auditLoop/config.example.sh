@@ -23,13 +23,18 @@ AUDIT_STATE_SYNC="MEMORY_SYNC_REMOTE=claude-memory:AI/audit MEMORY_DIR=$HOME/Dro
 # (checked 2026-11-01). See ReadMe.md, "Checking that usage data reaches the gate".
 AUDIT_MODE=tmux
 
+# Hosts the launcher refuses to run on (shell patterns, space-separated): cluster login nodes,
+# where builds and models must not run. Empty allows any host.
+AUDIT_REFUSE_HOSTS="login*"
+
 # Hard stop: AUDIT_STOP_AT today (local time), or AUDIT_HOURS after the start, whichever is first.
 # The weekly reset is 20:00 on Saturday; stop an hour before it.
 AUDIT_STOP_AT=19:00
 AUDIT_HOURS=12
 
 # Usage gate. Do not start unless the weekly reset is within 14 h (catches a moved reset
-# day) and at least 10% of the allowance is free below the ceiling.
+# day) and at least 10% of the allowance is free below the ceiling. For a run on another day
+# (a trial), drop --require-reset-within-hours.
 AUDIT_PREFLIGHT_ARGS="--min-headroom 10 --require-reset-within-hours 14"
 # Options for every usageGate.py call (the reserve curve, the five-hour ceiling, the forecast
 # safety factor; see usageGate.py --help). Empty means the defaults: a ceiling of 80% until
