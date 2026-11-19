@@ -39,7 +39,8 @@ tools="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${AUDIT_PREFLIGHT_ARGS:=--min-headroom 10 --require-reset-within-hours 14}"
 : "${AUDIT_PYTHON:=python3}"
 : "${AUDIT_GATE_ARGS:=}"
-export AUDIT_STATE_DIR AUDIT_REPO AUDIT_WORKDIR AUDIT_BACKLOG_MAX AUDIT_JOBS AUDIT_LENSES AUDIT_GATE_ARGS AUDIT_PYTHON
+: "${AUDIT_STATE_SYNC:=}"
+export AUDIT_STATE_SYNC AUDIT_STATE_DIR AUDIT_REPO AUDIT_WORKDIR AUDIT_BACKLOG_MAX AUDIT_JOBS AUDIT_LENSES AUDIT_GATE_ARGS AUDIT_PYTHON
 export AUDIT_TOOLS="$tools"
 
 session="audit-$(date +%Y%m%d-%H%M)-${SLURM_JOB_ID:-$$}"
@@ -64,6 +65,14 @@ if [ "$deadline" -le $(( now + 1800 )) ]; then
 fi
 
 git -C "$AUDIT_REPO" fetch --quiet origin || { say "git fetch failed: not starting"; exit 1; }
+
+# On a machine without a Dropbox client, AUDIT_STATE_SYNC pushes and pulls the state
+# directory (e.g. rclone bisync). Pull first, so this run sees Andrew's latest edits.
+sync_state() {
+    [ -n "$AUDIT_STATE_SYNC" ] || return 0
+    bash -c "$AUDIT_STATE_SYNC" > /dev/null 2>&1 || say "state sync failed ($1): run it by hand: $AUDIT_STATE_SYNC"
+}
+sync_state "before the run"
 
 # shellcheck disable=SC2086
 gate() { "$AUDIT_PYTHON" "$tools/usageGate.py" $AUDIT_GATE_ARGS "$@"; }
@@ -158,6 +167,7 @@ outcome="no segment ran"
 for segment in $(seq 1 $max_segments); do
     done_file="$AUDIT_WORKDIR/runs/$session.seg$segment.done"
     run_segment "$segment" "$done_file"
+    sync_state "after segment $segment"
     if [ ! -e "$done_file" ]; then
         outcome="segment $segment ended without a done file (killed, crashed, or hit a limit)"
         break
@@ -195,4 +205,5 @@ done
 gate status || true
 say "run over: $outcome"
 cp "$log" "$AUDIT_STATE_DIR/runs/$session.launcher.log" 2>/dev/null || true
+sync_state "at the end"
 exit 0

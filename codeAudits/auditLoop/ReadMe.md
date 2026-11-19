@@ -38,7 +38,10 @@ for `auditState.py sync --gh`.
    worktree in `$AUDIT_WORKDIR/wt/audit`, so builds stay incremental from one run to the
    next. Audit branches (`audit/F-NNNN-…`) stay local to this checkout.
 4. **State.** Run `auditState.py init`, which creates `~/Dropbox/AI/audit/` (or
-   `$AUDIT_STATE_DIR`). To credit the 2026-10-21 overnight sweep as a skim:
+   `$AUDIT_STATE_DIR`). On a machine with no Dropbox client (obshpc, Caltech HPC), that
+   folder is local until something syncs it. Set `AUDIT_STATE_SYNC` in the config (the
+   template reuses `claude_memory_sync.sh` with the audit folder), and run the same command
+   by hand after using `auditState.py` or `importPlan.py` outside a run. To credit the 2026-10-21 overnight sweep as a skim:
    ```bash
    ./auditState.py coverage backfill --repo $AUDIT_REPO --commit 350ee94947 \
        --date 2026-10-21 --session backfill-2026-10-21 --lens bugs --depth skim

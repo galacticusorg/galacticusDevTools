@@ -11,6 +11,13 @@ AUDIT_WORKDIR=/scratch/abenson/auditwork
 # Shared state (findings, coverage, claims, INDEX.md), synced by Dropbox.
 AUDIT_STATE_DIR=$HOME/Dropbox/AI/audit
 
+# A command that syncs AUDIT_STATE_DIR with Dropbox, for machines with no Dropbox client.
+# Run before the run, after each segment and at the end (the skill also runs it). On obshpc,
+# reuse the memory sync script with the audit folder in place of the memory folder:
+AUDIT_STATE_SYNC="MEMORY_SYNC_REMOTE=claude-memory:AI/audit MEMORY_DIR=$HOME/Dropbox/AI/audit MEMORY_SYNC_STATE=$HOME/.local/state/claude-audit-sync bash $HOME/Dropbox/AI/memory/sync/claude_memory_sync.sh sync"
+# On a machine with the Dropbox client, leave it empty:
+# AUDIT_STATE_SYNC=""
+
 # tmux: an interactive session in a private tmux server. headless: claude -p. Use tmux unless
 # the statusLine (the only source of usage data) runs in -p mode; on obshpc it does not
 # (checked 2026-11-01). See ReadMe.md, "Checking that usage data reaches the gate".

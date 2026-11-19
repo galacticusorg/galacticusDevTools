@@ -15,8 +15,8 @@ meaning `$AUDIT_PYTHON $AUDIT_TOOLS/auditState.py …`, `… prioritize.py …` 
 | Argument | What to do |
 |---|---|
 | `run` (the launcher's prompt gives the settings) | the unattended loop: sections 1–5 |
-| `once [path or directory]` | one iteration (section 3) on that target, or on the top-ranked group if none is given, with the user watching. Skip the usage gate, and report back at the end |
-| `status` | `state sync --repo $AUDIT_REPO`, `state index`, `gate status`; summarize the backlog and what is in flight |
+| `once [path or directory]` | one iteration (section 3) on that target, or on the top-ranked group if none is given, with the user watching. Skip the usage gate. Run `$AUDIT_STATE_SYNC` (if set) before and after, and report back at the end |
+| `status` | `bash -c "$AUDIT_STATE_SYNC"` if it is set, `state sync --repo $AUDIT_REPO`, `state index`, `gate status`; summarize the backlog and what is in flight |
 
 In `run` mode, the launcher's prompt supplies the session id, deadline, done file, checkout,
 work directory, lenses, backlog cap and `-j`. The same values are in the environment
@@ -62,7 +62,9 @@ work directory, lenses, backlog cap and `-j`. The same values are in the environ
    `stopped <reason from the JSON>` (or, for exit 10, `wait-until <wait_until>`) to the done
    file, and end. Then run `gate mark --session
    $AUDIT_SESSION --label start`.
-3. Sync the state: `state sync --repo $AUDIT_REPO` and `state index`. Then
+3. Sync the state: if `$AUDIT_STATE_SYNC` is set (machines with no Dropbox client),
+   run it first (`bash -c "$AUDIT_STATE_SYNC"`), then `state sync --repo $AUDIT_REPO` and
+   `state index`. Then
    `state backlog --max $AUDIT_BACKLOG_MAX`. Exit 1 means the review queue is full: run in
    **find-only mode**, which skips steps 3.6 and 3.7.
 4. Set up the worktree, a single persistent one that is reused across runs so builds stay
@@ -274,6 +276,10 @@ On a stop or restart in the middle of an iteration:
 An expired claim is released automatically after 6 hours, but release them anyway.
 
 ## 4. End of run
+
+If `$AUDIT_STATE_SYNC` is set, run it last, after the done file and the index, so the
+state reaches Dropbox even if the launcher is killed.
+
 
 Write the done file:
 - `finished <summary>` when the target list ran out;
