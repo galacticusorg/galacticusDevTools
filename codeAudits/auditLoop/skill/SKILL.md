@@ -119,7 +119,9 @@ lines at most:
 - sibling implementations that share code with it (where copy-paste bugs live);
 - its `.Inc` files.
 
-`rank --explain PATH` shows why a file ranks where it does. Prefer a group in which several
+`rank` already leaves out files that a fix waiting to merge (`pr-open` or `accepted`) is
+changing. Don't add them to the group by hand. `rank --explain PATH` shows why a file ranks
+where it does, or why it is left out. Prefer a group in which several
 files rank highly. Then `state claim <paths…> --session $AUDIT_SESSION`. If any path is
 refused, drop it from the group.
 

@@ -504,3 +504,101 @@ def test_statusline_debug_saves_raw_input(tmp_path):
     saved = json.load(open(str(tmp_path / "cache" / "last-input.json")))
     assert saved["stdin"] == '{"model": {}}'
     assert not os.path.exists(usage)
+
+
+# ------------------------------------------------------------------ PLAN.md import and open-PR exclusion
+
+PLAN = """\
+# Plan
+
+## Phase 1 — land the fixes
+
+- [x] **L9** Recent-review commits. — done: PR #1767 merged 2026-11-13
+- [x] **L3** (accepted 2026-11-18; PRs #1822 (with N-x), #1824) Crash fixes. — done
+
+## PRs from review queue
+
+| # | Item | Branch | PR | Status |
+|---|---|---|---|---|
+| 37 | P24–P26+P39 | `fix/physics-minor-halos` @ `7183738da7` | #1806 | open 2026-11-17 |
+| 29 | L9 | `fix/recent-review-followups` @ `b434ebd07f` | #1767 | **merged 2026-11-13** |
+
+## Phase 2 — open findings
+
+### High
+- [ ] **B18** Local Group targets drop asymmetric errors. `interface/Local_Group_database.F90:226`
+- [ ] **PG3-15** Jiang (2008) wrong coefficients. `cooling/cole2000.F90` — Andrew's call (6b9726a7, 2026-10-24): fix to eq. 7 or document.
+- [-] **B99** Not a bug. `cooling/cole2000.F90`
+
+### Minor / latent (bugs and recent review)
+- [x] **P25** Soliton series. `cooling/multiplier.F90` — done on fix/physics-minor-halos
+- [ ] **N-latentThing** (new, 2026-11-18; *not run*; latent) A latent race in `numerical/helper.F90` (`work/build/numerical/helper.p.F90` ~l.3) mentions #1801 in passing.
+- [~] **N-claimed** Claimed thing. `unused/orphan.F90` — taken: abc @ host 2026-11-01
+
+## Phase 3 — unfinished audit work
+- [ ] **R-continue** Review merges.
+"""
+
+
+def test_import_plan_preview_and_write(repo, state, tmp_path):
+    import importPlan
+    records, skipped = importPlan.parse_plan(PLAN, repo, open_prs={1822, 1824}, pr_files={1806: ["source/cooling/multiplier.F90",
+                                                                          "source/cooling/_class.F90"]})
+    by_id = {record["plan_id"]: record for record in records}
+    assert [identifier for identifier, _ in skipped] == ["R-continue"]
+    assert by_id["L9"]["status"] == "merged"
+    assert by_id["L3"]["status"] == "pr-open" and by_id["L3"]["pr"] == 1822
+    assert by_id["P25"]["status"] == "pr-open" and by_id["P25"]["pr"] == 1806       # via the PR table range
+    assert by_id["P25"]["branch"] == "fix/physics-minor-halos"
+    assert by_id["P25"]["pr_files"] == ["source/cooling/multiplier.F90", "source/cooling/_class.F90"]
+    assert by_id["B18"]["status"] == "verified" and by_id["B18"]["severity"] == "high"
+    assert by_id["B18"]["files"] == ["interface/Local_Group_database.F90"]            # not in this checkout
+    assert by_id["PG3-15"]["status"] == "parked" and "eq. 7" in by_id["PG3-15"]["questions_for_andrew"]
+    assert by_id["PG3-15"]["category"] == "physics"
+    assert by_id["B99"]["status"] == "rejected"
+    latent = by_id["N-latentThing"]
+    assert latent["status"] == "verified" and "pr" not in latent                        # a mention, not its PR
+    assert latent["confidence"] == "plausible" and latent["severity"] == "latent"
+    assert latent["files"] == ["source/numerical/helper.F90"]                         # generated path mapped back
+    assert latent["category"] == "threading" and latent["created"] == "2026-11-18"
+    assert by_id["N-claimed"]["files"] == ["source/unused/orphan.F90"]
+    plan = tmp_path / "PLAN.md"
+    plan.write_text(PLAN)
+    run("importPlan.py", str(plan), "--repo", repo, "--open-pr", "1822", "--write")
+    assert common.load_finding(state, "F-0002")[0]["status"] == "pr-open"
+    findings, problems = common.list_findings(state)
+    assert not problems and len(findings) == len(records)
+    again = run("importPlan.py", str(plan), "--repo", repo, "--write")                 # idempotent
+    assert "created 0 finding(s)" in again.stdout
+    assert len(common.list_findings(state)[0]) == len(records)
+
+
+def test_open_pr_files_are_not_ranked(repo, state):
+    identifier = run("auditState.py", "finding", "new", "--title", "x", "--severity", "high", "--category", "physics",
+                     "--file", "source/cooling/cole2000.F90:12").stdout.strip()
+    run("auditState.py", "finding", "set", identifier, "status=pr-open", "pr=1806",
+        "pr_files=source/cooling/multiplier.F90")
+    rows = ranking(repo)
+    assert "source/cooling/cole2000.F90" not in rows and "source/cooling/multiplier.F90" not in rows
+    assert "source/cooling/white_frenk.F90" in rows
+    explained = json.loads(run("prioritize.py", "--repo", repo, "--explain", "source/cooling/cole2000.F90").stdout)
+    assert identifier in explained["reason"]
+    assert "source/cooling/cole2000.F90" in ranking(repo, "--include-pr-open")
+    run("auditState.py", "finding", "set", identifier, "status=merged")
+    assert "source/cooling/cole2000.F90" in ranking(repo)
+
+
+def test_sync_marks_imported_pr_merged_from_merge_commit(repo, state):
+    identifier = run("auditState.py", "finding", "new", "--title", "x", "--severity", "high", "--category", "crash",
+                     "--file", "a").stdout.strip()
+    run("auditState.py", "finding", "set", identifier, "status=pr-open", "pr=1806", "branch=fix/not-here")
+    run("auditState.py", "sync", "--repo", repo, "--base", "master")
+    assert common.load_finding(state, identifier)[0]["status"] == "pr-open"
+    git(repo, "checkout", "-q", "-b", "fix/not-here")
+    git(repo, "commit", "-q", "--allow-empty", "-m", "fix")
+    git(repo, "checkout", "-q", "master")
+    git(repo, "merge", "-q", "--no-ff", "-m", "Merge pull request #1806 from galacticusorg/fix/not-here",
+        "fix/not-here")
+    git(repo, "branch", "-q", "-D", "fix/not-here")
+    run("auditState.py", "sync", "--repo", repo, "--base", "master")
+    assert common.load_finding(state, identifier)[0]["status"] == "merged"

@@ -11,6 +11,7 @@ review. A usage gate stops the run before it uses up the weekly plan allowance.
 | `skill/SKILL.md` | The `galacticus-audit` Claude Code skill: the loop itself (target, audit, verify, record, fix, review, coverage) |
 | `auditState.py` | Findings, coverage records, claims, the review backlog, branch/PR sync, and the generated `INDEX.md` |
 | `prioritize.py` | Ranks source files by reference-model use, recent change, time since review, and bug density |
+| `importPlan.py` | One-off: imports the items of the 2026-10-21 audit `PLAN.md` as findings |
 | `usageGate.py` | Pre-flight and per-iteration checks against the weekly and five-hour usage windows |
 | `statuslineUsage.py` | A Claude Code `statusLine` command that saves the usage data the gate reads |
 | `runAudit.sh` | The launcher (run from `scrontab`): deadline, pre-flight, one or more Claude Code sessions, sync |
@@ -39,9 +40,10 @@ for `auditState.py sync --gh`.
 4. **State.** Run `auditState.py init`, which creates `~/Dropbox/AI/audit/` (or
    `$AUDIT_STATE_DIR`). To credit the 2026-10-21 overnight sweep as a skim:
    ```bash
-   ./auditState.py coverage backfill --repo $AUDIT_REPO --commit <commit it audited> \
+   ./auditState.py coverage backfill --repo $AUDIT_REPO --commit 350ee94947 \
        --date 2026-10-21 --session backfill-2026-10-21 --lens bugs --depth skim
    ```
+   Then import the existing plan (see *Importing PLAN.md* below).
 5. **Config.** Copy `config.example.sh` to `~/.config/galacticus-audit/config.sh` and edit it,
    in particular `AUDIT_CLAUDE_ARGS`. The run is unattended, so it needs a permission mode
    that won't stop at prompts.
@@ -187,6 +189,10 @@ To change a status, edit the file or run
 `auditState.py finding set F-0123 status=accepted --note "…"`. The `set` command checks the
 value, and records the change under `## History`.
 
+A finding with a `pr` number but no local branch (as imported from `PLAN.md`) is marked
+`merged` once `origin/master` has GitHub's "Merge pull request #N" commit. That check needs
+no `gh`; with `--gh`, `sync` also records the PR's changed files in `pr_files`.
+
 `auditState.py sync --repo $AUDIT_REPO [--gh]` keeps a finding's branch head and diff size
 current. It marks the finding `merged` once the branch is on `origin/master`; with `--gh`, it
 also notes PR numbers and marks open PRs `pr-open`.
@@ -231,5 +237,57 @@ collision would show up as a conflicted copy.
 - **B, bug density.** It counts findings that name the file (and, at a quarter weight, its
   directory), saturating at 3.
 
+Files that a fix waiting to merge is changing are left out too. These are the `files` and
+`pr_files` of findings whose status is `pr-open` or `accepted`. Auditing them now would mostly
+re-find what the PR fixes, and a new fix there would conflict with it. They come back once
+`sync` marks the finding `merged`, and since they then differ from any earlier review, they
+rank highly. `--include-pr-open` turns this off, and `--explain PATH` says which finding
+holds a file back.
+
 Files claimed by another session are left out, and so are files fully reviewed in the last
 30 days and unchanged since. All weights and scales are options.
+
+## Importing PLAN.md
+
+`importPlan.py` turns the checkbox items of the 2026-10-21 audit plan
+(`~/Dropbox/AI/memory/overnight-2026-10-21/PLAN.md`) into findings, so that there is one
+tracker. Run it on obshpc, where the checkout has the full history and `gh` can list the
+open PRs:
+
+```bash
+./importPlan.py ~/Dropbox/AI/memory/overnight-2026-10-21/PLAN.md --repo $AUDIT_REPO --gh \
+    --preview /tmp/plan-import.md                      # look at the table first
+./importPlan.py ~/Dropbox/AI/memory/overnight-2026-10-21/PLAN.md --repo $AUDIT_REPO --gh --write
+./auditState.py sync --repo $AUDIT_REPO --gh && ./auditState.py index
+```
+
+Without `gh`, pass the open PRs as `--open-pr N` (repeated) and their changed files as
+`--pr-files FILE.json` (`{"1806": ["source/…", …], …}`). The plan's own PR table already
+marks its open rows.
+
+How items map:
+
+| PLAN.md | Finding |
+|---|---|
+| `[x]`, in an open PR (on the line, in the PR table, or from `gh`) | `pr-open`, with `pr`, `branch` and `pr_files` |
+| `[x]`, otherwise | `merged` (noted when the line doesn't say "merged") |
+| `[ ]` or `[~]` asking for Andrew's decision ("Andrew's call", "for Andrew", "waiting:") | `parked`, with the question |
+| `[ ]` or `[~]`, otherwise | `verified` (`plausible` if *not run* or *not re-checked*) |
+| `[-]` | `rejected` |
+| Phase 3 items (audit tasks, not findings) | skipped |
+
+Severity comes from the section the item is in (High, Medium, Minor, Documentation). The
+category comes from the ID (P* items are physics, D-/PD- items docs) or is guessed from the
+text, and every guess is noted in the finding's *Import notes*.
+
+Files come from the backticked paths in the item's description, resolved against the
+checkout (a generated `work/build/….p.F90` maps back to its source). For done items that
+name no file, they come from the commits the line cites: a merge into master, or a plain
+commit, but not a merge of master into a branch. Items left with no files are listed in the
+preview, and their `files` can be added by hand.
+
+The import is idempotent: items already imported (matched by `plan_id`) are skipped. So
+while `PLAN.md` stays in use, the import can be repeated to pick up new items. Once it has
+been run, add a line at the top of `PLAN.md` saying that new items go in
+`~/Dropbox/AI/audit/findings/` (with `auditState.py finding new`).
+

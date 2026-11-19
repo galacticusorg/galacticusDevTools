@@ -22,8 +22,10 @@ Each file gets
   B  bug density: open or closed findings that name the file (and, at a
      quarter weight, its directory), saturating at 3.
 
-Files claimed by another session, and files fully reviewed under this lens
-in the last --cooldown-days and unchanged since, are left out. The static
+Files claimed by another session, files fully reviewed under this lens in the
+last --cooldown-days and unchanged since, and files that an open PR is fixing
+(the `files` and `pr_files` of findings whose status is `pr-open` or
+`accepted`; --include-pr-open keeps them) are left out. The static
 reference-model mapping does not see implementations chosen by code rather
 than by parameters, so R is a lower bound: a gcov-based mapping is the
 planned upgrade.
@@ -280,6 +282,23 @@ def bug_density(findings):
     return per_file, per_directory
 
 
+PENDING_STATUSES = ("pr-open", "accepted")
+
+
+def files_in_open_prs(findings):
+    """Map path -> finding ids, for files that a fix waiting to merge changes. Auditing them
+    now would mostly re-find what the PR fixes, and a new fix there would conflict with it."""
+    pending = {}
+    for fields, _ in findings:
+        if fields.get("status") not in PENDING_STATUSES:
+            continue
+        for entry in list(fields.get("files") or []) + list(fields.get("pr_files") or []):
+            owners = pending.setdefault(entry.split(":")[0], [])
+            if fields.get("id") not in owners:
+                owners.append(fields.get("id"))
+    return pending
+
+
 def rank(arguments):
     repo = os.path.abspath(arguments.repo)
     root = common.state_dir(arguments.state)
@@ -292,11 +311,14 @@ def rank(arguments):
     findings, _ = common.list_findings(root)
     per_file, per_directory = bug_density(findings)
     claims = common.active_claims(root)
+    in_open_prs = {} if arguments.include_pr_open else files_in_open_prs(findings)
     rows = []
     for path in scan["files"]:
         if path not in hashes:  # untracked
             continue
         if path in claims and claims[path].get("session") != arguments.session:
+            continue
+        if path in in_open_prs:
             continue
         review = reviews.get(path)
         changed = review is not None and review.get("blob") != hashes[path]
@@ -332,6 +354,8 @@ def main(argv=None):
     parser.add_argument("--session", help="this session's id: its own claims are not excluded")
     parser.add_argument("--top", type=int, default=30)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--include-pr-open", action="store_true",
+                        help="do not leave out files that a fix waiting to merge (pr-open/accepted) changes")
     parser.add_argument("--explain", metavar="PATH", help="print the score breakdown of one file")
     parser.add_argument("--w-reference", type=float, default=3.0)
     parser.add_argument("--w-change", type=float, default=2.0)
@@ -350,7 +374,18 @@ def main(argv=None):
     rows = rank(arguments)
     if arguments.explain:
         matches = [row for row in rows if row["path"] == arguments.explain]
-        print(json.dumps(matches[0] if matches else {"path": arguments.explain, "excluded": True}, indent=1))
+        if matches:
+            print(json.dumps(matches[0], indent=1))
+            return
+        explanation = {"path": arguments.explain, "excluded": True}
+        findings, _ = common.list_findings(common.state_dir(arguments.state))
+        pending = files_in_open_prs(findings).get(arguments.explain)
+        if pending and not arguments.include_pr_open:
+            explanation["reason"] = "changed by a fix waiting to merge: " + ", ".join(pending)
+        claim = common.active_claims(common.state_dir(arguments.state)).get(arguments.explain)
+        if claim and claim.get("session") != arguments.session:
+            explanation["reason"] = "claimed by " + str(claim.get("session"))
+        print(json.dumps(explanation, indent=1))
         return
     rows = rows[:arguments.top]
     if arguments.json:

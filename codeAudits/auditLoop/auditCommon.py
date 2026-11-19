@@ -49,7 +49,7 @@ DEPTHS = ["full", "skim"]
 FIELD_ORDER = [
     "id", "title", "status", "severity", "confidence", "complexity", "category",
     "files", "affects_reference_models", "branch", "base", "head", "depends_on",
-    "diff_lines", "review_rounds", "pr", "questions_for_andrew", "found_by",
+    "diff_lines", "review_rounds", "pr", "pr_files", "questions_for_andrew", "plan_id", "found_by",
     "created", "updated",
 ]
 

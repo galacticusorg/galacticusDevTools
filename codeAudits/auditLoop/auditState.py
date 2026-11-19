@@ -30,8 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import auditCommon as common  # noqa: E402
 
 # Fields always stored as strings, and fields always stored as lists (`key=a,b` or JSON).
-STRING_FIELDS = {"title", "branch", "base", "head", "found_by", "questions_for_andrew"}
-LIST_FIELDS = {"files", "depends_on"}
+STRING_FIELDS = {"title", "branch", "base", "head", "found_by", "questions_for_andrew", "plan_id"}
+LIST_FIELDS = {"files", "depends_on", "pr_files"}
 
 ENUMERATIONS = {
     "status": common.STATUSES,
@@ -333,14 +333,67 @@ def pull_request(branch, repository):
     return entries[0] if entries else None
 
 
+def pr_merged_on_base(repo, base, number):
+    """True if `base` has GitHub's merge commit for PR `number` ("Merge pull request #N from …")."""
+    result = common.git(repo, "log", base, "--first-parent", "-n", "1", "--format=%H",
+                        "--grep", "^Merge pull request #{} from ".format(number), check=False)
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def pull_request_by_number(number, repository):
+    """(state, changed files) of PR `number` from the gh CLI, or None."""
+    if shutil.which("gh") is None:
+        return None
+    result = subprocess.run(["gh", "pr", "view", str(number), "--repo", repository, "--json", "state,files"],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    if result.returncode != 0:
+        return None
+    entry = json.loads(result.stdout)
+    return entry.get("state"), [item["path"] for item in entry.get("files", [])]
+
+
+def sync_by_pr(arguments, root, fields, body):
+    """Findings with a PR number and no local branch (e.g. imported from PLAN.md): merged once the
+    PR's merge commit is on the base; with --gh, also the PR's state and changed files."""
+    changes = []
+    number = fields["pr"]
+    if pr_merged_on_base(arguments.repo, arguments.base, number):
+        changes.append(("status", "merged"))
+    elif arguments.gh:
+        entry = pull_request_by_number(number, arguments.repository)
+        if entry:
+            state, files = entry
+            if state == "MERGED":
+                changes.append(("status", "merged"))
+            elif state == "CLOSED":
+                print("{}: PR #{} was closed without merging".format(fields["id"], number))
+            if files and fields.get("pr_files") != files:
+                changes.append(("pr_files", files))
+    changes = [(key, value) for key, value in changes if fields.get(key) != value]
+    if changes:
+        description = "; ".join("{}: {}".format(key, json.dumps(value) if key != "pr_files"
+                                                else "{} files".format(len(value))) for key, value in changes)
+        for key, value in changes:
+            fields[key] = value
+        common.save_finding(root, fields, add_history(body, "sync: " + description))
+        print("{}: {}".format(fields["id"], description))
+
+
 def command_sync(arguments):
     root = common.state_dir(arguments.state)
     findings, problems = common.list_findings(root)
     for problem in problems:
         print("warning: " + problem)
     for fields, body in findings:
+        if fields.get("status") in ("merged", "rejected", "superseded"):
+            continue
         branch = fields.get("branch")
-        if not branch or fields.get("status") in ("merged", "rejected", "superseded"):
+        has_branch = bool(branch) and common.git(arguments.repo, "rev-parse", "--verify", "--quiet",
+                                                 "refs/heads/" + branch, check=False).returncode == 0
+        if fields.get("pr") and not has_branch:
+            sync_by_pr(arguments, root, fields, body)
+            continue
+        if not branch:
             continue
         changes = []
         exists = common.git(arguments.repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch, check=False)
