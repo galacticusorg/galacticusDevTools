@@ -660,3 +660,27 @@ def test_complexity_mismatch_is_flagged(repo, state):
     assert "complexity S (size suggests M) for 60 changed source lines" in result.stdout
     run("auditState.py", "index")
     assert "| S (size suggests M) | 60/0 |" in open(os.path.join(state, "INDEX.md")).read()
+
+
+def test_sync_sees_pr_merge_with_local_branch_and_no_base(repo, state):
+    git(repo, "checkout", "-q", "-b", "fix/local-pr-branch")
+    git(repo, "commit", "-q", "--allow-empty", "-m", "fix")
+    git(repo, "checkout", "-q", "master")
+    git(repo, "merge", "-q", "--no-ff", "-m", "Merge pull request #1900 from galacticusorg/fix/local-pr-branch",
+        "fix/local-pr-branch")
+    identifier = run("auditState.py", "finding", "new", "--title", "x", "--severity", "high", "--category", "crash",
+                     "--file", "a").stdout.strip()
+    run("auditState.py", "finding", "set", identifier, "status=pr-open", "pr=1900", "branch=fix/local-pr-branch")
+    result = run("auditState.py", "sync", "--repo", repo, "--base", "master")
+    assert "no recorded base" not in result.stdout
+    assert common.load_finding(state, identifier)[0]["status"] == "merged"
+
+
+def test_staged_fixes_hold_their_files_back(repo, state):
+    identifier = run("auditState.py", "finding", "new", "--title", "x", "--severity", "high", "--category", "crash",
+                     "--file", "source/cooling/cole2000.F90").stdout.strip()
+    for status in ("fix-staged", "in-peer-review", "ready-for-review"):
+        run("auditState.py", "finding", "set", identifier, "status=" + status)
+        assert "source/cooling/cole2000.F90" not in ranking(repo)
+    run("auditState.py", "finding", "set", identifier, "status=verified")
+    assert "source/cooling/cole2000.F90" in ranking(repo)

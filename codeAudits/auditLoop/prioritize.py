@@ -23,9 +23,10 @@ Each file gets
      quarter weight, its directory), saturating at 3.
 
 Files claimed by another session, files fully reviewed under this lens in the
-last --cooldown-days and unchanged since, and files that an open PR is fixing
-(the `files` and `pr_files` of findings whose status is `pr-open` or
-`accepted`; --include-pr-open keeps them) are left out. The static
+last --cooldown-days and unchanged since, and files that a fix in flight is
+changing (the `files` and `pr_files` of findings whose status is fix-staged,
+in-peer-review, ready-for-review, accepted or pr-open; --include-pr-open keeps
+them) are left out. The static
 reference-model mapping does not see implementations chosen by code rather
 than by parameters, so R is a lower bound: a gcov-based mapping is the
 planned upgrade.
@@ -282,7 +283,9 @@ def bug_density(findings):
     return per_file, per_directory
 
 
-PENDING_STATUSES = ("pr-open", "accepted")
+# Every status with a fix in flight: auditing those files again would duplicate the work, and a new
+# fix there would conflict with the staged one.
+PENDING_STATUSES = ("fix-staged", "in-peer-review", "ready-for-review", "accepted", "pr-open")
 
 
 def files_in_open_prs(findings):
@@ -355,7 +358,7 @@ def main(argv=None):
     parser.add_argument("--top", type=int, default=30)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--include-pr-open", action="store_true",
-                        help="do not leave out files that a fix waiting to merge (pr-open/accepted) changes")
+                        help="do not leave out files that a fix in flight (staged, in review, accepted, PR open) changes")
     parser.add_argument("--explain", metavar="PATH", help="print the score breakdown of one file")
     parser.add_argument("--w-reference", type=float, default=3.0)
     parser.add_argument("--w-change", type=float, default=2.0)
