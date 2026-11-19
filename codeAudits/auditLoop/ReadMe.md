@@ -192,8 +192,8 @@ To change a status, edit the file or run
 `auditState.py finding set F-0123 status=accepted --note "…"`. The `set` command checks the
 value, and records the change under `## History`.
 
-A finding with a `pr` number but no local branch (as imported from `PLAN.md`) is marked
-`merged` once `origin/master` has GitHub's "Merge pull request #N" commit. That check needs
+A finding with a `pr` number is marked `merged` once `origin/master` has GitHub's
+"Merge pull request #N" commit, whether or not its branch is in the checkout. That check needs
 no `gh`; with `--gh`, `sync` also records the PR's changed files in `pr_files`.
 
 `auditState.py sync --repo $AUDIT_REPO [--gh]` keeps a finding's branch head and diff size
@@ -240,8 +240,9 @@ collision would show up as a conflicted copy.
 - **B, bug density.** It counts findings that name the file (and, at a quarter weight, its
   directory), saturating at 3.
 
-Files that a fix waiting to merge is changing are left out too. These are the `files` and
-`pr_files` of findings whose status is `pr-open` or `accepted`. Auditing them now would mostly
+Files that a fix in flight is changing are left out too. These are the `files` and `pr_files`
+of findings whose status is `fix-staged`, `in-peer-review`, `ready-for-review`, `accepted` or
+`pr-open`. Auditing them now would mostly
 re-find what the PR fixes, and a new fix there would conflict with it. They come back once
 `sync` marks the finding `merged`, and since they then differ from any earlier review, they
 rank highly. `--include-pr-open` turns this off, and `--explain PATH` says which finding

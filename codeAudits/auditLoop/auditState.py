@@ -410,10 +410,11 @@ def command_sync(arguments):
         if mismatch:
             print("{}: complexity {} for {} changed source lines: check the label "
                   "(it sets the review order)".format(fields["id"], mismatch, counts["source"]))
-        if not fields.get("base"):
+        pr_merged = bool(fields.get("pr")) and pr_merged_on_base(arguments.repo, arguments.base, fields["pr"])
+        if not fields.get("base") and not pr_merged:
             print("{}: no recorded base, so a merge can not be told from an empty branch: "
                   "set base=<fork commit>".format(fields["id"]))
-        if is_merged(arguments.repo, arguments.base, branch, fields.get("base")):
+        if pr_merged or is_merged(arguments.repo, arguments.base, branch, fields.get("base")):
             changes.append(("status", "merged"))
         else:
             clean = merges_cleanly(arguments.repo, arguments.base, branch)
