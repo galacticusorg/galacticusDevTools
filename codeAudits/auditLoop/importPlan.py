@@ -191,8 +191,16 @@ def clean_title(identifier, description):
         else:
             break
         text = text[index + 1:].lstrip()
-    text = re.sub(r"`[^`]*\.(?:F90|Inc|inc|py|xml|c|cpp|h)[^`]*`", "", text)
-    # Tidy what removing the paths left behind: "(, called only by )", "in :".
+    # A path after the end of a sentence is a location tag ("… ×ln10. `interface/x.F90:226`"): drop
+    # it. Elsewhere it is often the sentence's subject ("`interface/AxionCAMB.F90:398` writes …"),
+    # so keep its file name. Scratch paths and brace patterns always go.
+    text = re.sub(r"(?<=[.;])\s*`[^`]*\.(?:F90|Inc|inc|py|xml|c|cpp|h)(?::[^`]*)?`", "", text)
+    text = text.replace("**", "")
+    text = re.sub(r"`([^`]*\.(?:F90|Inc|inc|py|xml|c|cpp|h))(?::[^`]*)?`(?:\s*~?l\.\s*[\d,–-]+)?",
+                  lambda match: "" if match.group(1).startswith(("/", "~")) or "{" in match.group(1)
+                  else "`{}`".format(os.path.basename(match.group(1))), text)
+    text = re.sub(r"\(\s*~?l\.\s*[\d,–-]+\)", "", text)
+    # Tidy what removing paths left behind: "(, called only by )", "in :".
     text = re.sub(r"\(\s*[,;:]?\s*\)", "", text)
     text = re.sub(r"\(\s*[,;]\s*", "(", text)
     text = re.sub(r"\s+([,;:.)])", r"\1", text)
@@ -203,12 +211,38 @@ def clean_title(identifier, description):
     return text or identifier
 
 
-def question_text(rest):
-    match = re.search(r"(Andrew's call[^—]*|for Andrew[^—]*|waiting:[^—]*)", rest)
-    if not match:
-        return None
-    text = re.sub(r"\s+", " ", match.group(1)).strip()
+QUESTION_MARKER = re.compile(r"Andrew's call|for Andrew|waiting:", re.I)
+
+
+def tidy_question(text):
+    text = text.replace("*", "")
+    text = re.sub(r"^\s*(?:waiting:\s*)", "", text, flags=re.I)
+    text = re.sub(r"\s+", " ", text).strip(" ;,.")
     return text[:400] + ("…" if len(text) > 400 else "")
+
+
+def question_text(rest):
+    """The question for Andrew. A later " — " segment ("— Andrew's call (…): fix to eq. 7 or …?",
+    "— waiting: …") states it; failing that, a tag in the item's leading parenthesis ("(new, …;
+    *Andrew's call*: needs statistical weights)") only flags it, and the item text is the question."""
+    segments = rest.split(" — ")
+    for segment in segments[1:]:
+        if QUESTION_MARKER.search(segment):
+            return tidy_question(segment)
+    description = segments[0].lstrip()
+    if description.startswith("("):
+        depth = 0
+        for index, character in enumerate(description):
+            depth += {"(": 1, ")": -1}.get(character, 0)
+            if depth == 0:
+                break
+        for part in re.split(r";\s*", description[1:index]):
+            if QUESTION_MARKER.search(part):
+                tag = tidy_question(part)
+                return tag + " (the decision is described in the finding)"
+    if QUESTION_MARKER.search(description):
+        return "Decision needed: see the finding"
+    return None
 
 
 def gh_pr_files(number, repository):
@@ -378,6 +412,42 @@ def preview(records, skipped, existing):
     return "\n".join(lines) + "\n"
 
 
+REFRESH_FIELDS = ("title", "questions_for_andrew")
+
+
+def refresh_records(root, records):
+    """Rewrite the import-derived descriptive fields (title, question) of findings already
+    imported, after an importer fix. A field changed since the import with `finding set` (whose
+    history line names it) is left alone; an edit made directly in the file cannot be told
+    apart, so look at the preview first."""
+    findings, _ = common.list_findings(root)
+    by_plan = {fields.get("plan_id"): (fields, body) for fields, body in findings if fields.get("plan_id")}
+    refreshed = []
+    for record in records:
+        if record["plan_id"] not in by_plan:
+            continue
+        fields, body = by_plan[record["plan_id"]]
+        history = body.split("\n## History\n", 1)[1] if "\n## History\n" in body else ""
+        changes = []
+        for key in REFRESH_FIELDS:
+            new = record.get(key)
+            old = fields.get(key)
+            if new == old or new is None:
+                continue
+            edited = [line for line in history.splitlines()
+                      if re.search(r"\b{}: ".format(key), line) and "refresh from PLAN.md" not in line]
+            if edited:
+                continue
+            fields[key] = new
+            changes.append(key)
+        if changes:
+            body = body.rstrip("\n") + "\n- {} refresh from PLAN.md item {}: {}\n".format(
+                common.iso_now(), record["plan_id"], ", ".join(changes))
+            common.save_finding(root, fields, body)
+            refreshed.append((fields["id"], record["plan_id"], changes))
+    return refreshed
+
+
 def write_records(root, records, existing):
     created = []
     for record in records:
@@ -404,6 +474,9 @@ def main(argv=None):
     parser.add_argument("--pr-files", help="JSON file mapping PR number -> list of changed files")
     parser.add_argument("--preview", help="write the preview table to this Markdown file")
     parser.add_argument("--write", action="store_true", help="create the findings (default: preview only)")
+    parser.add_argument("--refresh", action="store_true",
+                        help="with --write: also rewrite the title and question of findings already imported, "
+                             "unless they were edited since")
     arguments = parser.parse_args(argv)
     with open(arguments.plan) as stream:
         text = stream.read()
@@ -437,6 +510,11 @@ def main(argv=None):
         len(created), root, sum(1 for r in records if r["plan_id"] in existing)))
     for identifier, plan_id in created:
         print("  {} <- {}".format(identifier, plan_id))
+    if arguments.refresh:
+        refreshed = refresh_records(root, records)
+        print("refreshed {} finding(s)".format(len(refreshed)))
+        for identifier, plan_id, changes in refreshed:
+            print("  {} ({}): {}".format(identifier, plan_id, ", ".join(changes)))
 
 
 if __name__ == "__main__":

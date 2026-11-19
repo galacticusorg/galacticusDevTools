@@ -289,6 +289,11 @@ name no file, they come from the commits the line cites: a merge into master, or
 commit, but not a merge of master into a branch. Items left with no files are listed in the
 preview, and their `files` can be added by hand.
 
+After an importer fix, `--write --refresh` also rewrites the `title` and
+`questions_for_andrew` of findings already imported. It records each change under
+*History*, and leaves alone any field changed since the import with `finding set`. An edit
+made directly in a finding file can't be detected, so check the preview first.
+
 The import is idempotent: items already imported (matched by `plan_id`) are skipped. So
 while `PLAN.md` stays in use, the import can be repeated to pick up new items. Once it has
 been run, add a line at the top of `PLAN.md` saying that new items go in

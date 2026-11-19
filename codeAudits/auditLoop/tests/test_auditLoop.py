@@ -602,3 +602,36 @@ def test_sync_marks_imported_pr_merged_from_merge_commit(repo, state):
     git(repo, "branch", "-q", "-D", "fix/not-here")
     run("auditState.py", "sync", "--repo", repo, "--base", "master")
     assert common.load_finding(state, identifier)[0]["status"] == "merged"
+
+
+def test_import_refresh_updates_titles_and_questions_but_not_edits(repo, state, tmp_path):
+    import importPlan
+    plan = tmp_path / "PLAN.md"
+    plan.write_text(PLAN.replace("## Phase 3", "- [ ] **N-tagged** (new, 2026-11-01; *Andrew's call*: needs weights) "
+                                 "`cooling/cole2000.F90` mixes two conventions.\n\n## Phase 3"))
+    run("importPlan.py", str(plan), "--repo", repo, "--write")
+    records, _ = importPlan.parse_plan(plan.read_text(), repo)
+    by_id = {record["plan_id"]: record for record in records}
+    assert by_id["N-tagged"]["questions_for_andrew"] == \
+        "Andrew's call: needs weights (the decision is described in the finding)"
+    assert by_id["N-tagged"]["title"] == "`cole2000.F90` mixes two conventions"
+    assert by_id["PG3-15"]["questions_for_andrew"].startswith("Andrew's call (6b9726a7, 2026-10-24): fix to eq. 7")
+    findings = {fields["plan_id"]: fields for fields, _ in common.list_findings(state)[0]}
+    tagged, parked = findings["N-tagged"]["id"], findings["PG3-15"]["id"]
+    # Simulate findings written by the earlier importer: stale title and question.
+    for identifier in (tagged, parked):
+        fields, body = common.load_finding(state, identifier)
+        fields["title"], fields["questions_for_andrew"] = "mixes two conventions", "Andrew's call*) …"
+        common.save_finding(state, fields, body)
+    run("auditState.py", "finding", "set", parked, "title=My own title")      # an edit to keep
+    result = run("importPlan.py", str(plan), "--repo", repo, "--write", "--refresh")
+    assert "refreshed 2 finding(s)" in result.stdout
+    fields, body = common.load_finding(state, tagged)
+    assert fields["title"] == "`cole2000.F90` mixes two conventions"
+    assert fields["questions_for_andrew"].startswith("Andrew's call: needs weights")
+    assert "refresh from PLAN.md item N-tagged: title, questions_for_andrew" in body
+    fields, _ = common.load_finding(state, parked)
+    assert fields["title"] == "My own title"                                  # edited: left alone
+    assert fields["questions_for_andrew"].startswith("Andrew's call (6b9726a7")
+    again = run("importPlan.py", str(plan), "--repo", repo, "--write", "--refresh")
+    assert "refreshed 0 finding(s)" in again.stdout
