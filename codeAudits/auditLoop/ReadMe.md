@@ -10,6 +10,7 @@ review. A usage gate stops the run before it uses up the weekly plan allowance.
 |---|---|
 | `skill/SKILL.md` | The `galacticus-audit` Claude Code skill: the loop itself (target, audit, verify, record, fix, review, coverage) |
 | `auditState.py` | Findings, coverage records, claims, the review backlog, branch/PR sync, and the generated `INDEX.md` |
+| `auditDashboard.py` | Renders the state directory as one self-contained, read-only HTML page (review queue, findings, runs, coverage) |
 | `prioritize.py` | Ranks source files by reference-model use, recent change, time since review, and bug density |
 | `importPlan.py` | One-off: imports the items of the 2026-10-21 audit `PLAN.md` as findings |
 | `usageGate.py` | Pre-flight and per-iteration checks against the weekly and five-hour usage windows |
@@ -216,6 +217,24 @@ is its own file, so Dropbox conflicts are rare. `auditState.py index` lists any 
 copies it finds. Finding ids are allocated with an exclusive create, so they are unique on a
 machine. Two machines creating findings at the same moment could still collide, and that
 collision would show up as a conflicted copy.
+
+## Dashboard
+
+`auditDashboard.py --output DIR/index.html [--state DIR] [--repository OWNER/NAME]` writes the
+state directory as one HTML page. It shows the review queue in the order `INDEX.md` uses, with the
+parked findings and their questions; a searchable, sortable table of every finding (filter by
+status, severity and category); each finding's front matter and rendered body (open one with
+`#F-0123` in the URL); the active claims; the latest run logs; and the coverage by lens and session.
+Files link to `master` on GitHub and PR numbers to their PRs. It only reads the state directory.
+
+The data is embedded in the page, so it can be served as a plain file. Bodies are rendered in the
+browser by marked and DOMPurify from cdnjs; offline, they are shown as plain text. To keep it
+current, run it from cron and serve the output directory, e.g. with Tailscale:
+
+```
+30 * * * * /usr/bin/python3 .../auditLoop/auditDashboard.py --output ~/auditDashboard/index.html
+sudo tailscale serve --bg --set-path /audit ~/auditDashboard
+```
 
 ## Prioritization
 
