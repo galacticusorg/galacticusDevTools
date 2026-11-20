@@ -684,3 +684,26 @@ def test_staged_fixes_hold_their_files_back(repo, state):
         assert "source/cooling/cole2000.F90" not in ranking(repo)
     run("auditState.py", "finding", "set", identifier, "status=verified")
     assert "source/cooling/cole2000.F90" in ranking(repo)
+
+
+def test_dashboard(tmp_path, state):
+    """The dashboard embeds every finding, keeps the review order, and cannot be broken out of."""
+    hostile = "</script><script>alert(1)</script>"
+    first = run("auditState.py", "finding", "new", "--title", "Easy fix " + hostile, "--severity", "low",
+                "--category", "docs", "--file", "source/a.F90").stdout.split()[0]
+    second = run("auditState.py", "finding", "new", "--title", "Harder fix", "--severity", "high",
+                 "--category", "physics", "--file", "source/b.F90").stdout.split()[0]
+    run("auditState.py", "finding", "set", first, "status=ready-for-review", "complexity=M")
+    run("auditState.py", "finding", "set", second, "status=ready-for-review", "complexity=S")
+    output = str(tmp_path / "site" / "index.html")
+    run("auditDashboard.py", "--output", output)
+    with open(output) as stream:
+        page = stream.read()
+    assert hostile not in page
+    payload = page.split('<script id="data" type="application/json">', 1)[1].split("</script>", 1)[0]
+    data = json.loads(payload)
+    assert {finding["id"] for finding in data["findings"]} == {first, second}
+    assert data["queue"] == [second, first]  # easiest (S) first
+    assert any(hostile in finding["title"] for finding in data["findings"])
+    assert run("auditDashboard.py", "--output", output, "--state", str(tmp_path / "nowhere"),
+               check=False).returncode == 1
