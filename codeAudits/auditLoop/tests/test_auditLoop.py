@@ -32,9 +32,12 @@ def run(tool, *arguments, env=None, check=True):
 
 
 def git(repo, *arguments):
-    subprocess.run(["git", "-C", repo] + list(arguments), check=True, stdout=subprocess.PIPE,
-                   stderr=subprocess.PIPE, env=dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
-                                                    GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t"))
+    # No hooks: a global `init.templateDir` may install the Galacticus hooks into every new
+    # repository, and their Conventional Commits check rejects the fixtures' commit messages.
+    subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", repo] + list(arguments), check=True,
+                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                   env=dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                            GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t"))
 
 
 def write(path, text):
