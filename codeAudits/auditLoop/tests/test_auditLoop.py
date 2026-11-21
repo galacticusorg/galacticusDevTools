@@ -710,3 +710,15 @@ def test_dashboard(tmp_path, state):
     assert any(hostile in finding["title"] for finding in data["findings"])
     assert run("auditDashboard.py", "--output", output, "--state", str(tmp_path / "nowhere"),
                check=False).returncode == 1
+
+
+def test_sync_reports_missing_branches_only_for_audit_branches(repo, state):
+    other = run("auditState.py", "finding", "new", "--title", "x", "--severity", "low", "--category", "docs",
+                "--file", "a").stdout.strip()
+    run("auditState.py", "finding", "set", other, "status=fix-staged", "branch=fix/in-another-checkout")
+    own = run("auditState.py", "finding", "new", "--title", "y", "--severity", "low", "--category", "docs",
+              "--file", "b").stdout.strip()
+    run("auditState.py", "finding", "set", own, "status=fix-staged", "branch=audit/F-9999-gone")
+    result = run("auditState.py", "sync", "--repo", repo, "--base", "master")
+    assert "fix/in-another-checkout" not in result.stdout
+    assert "audit/F-9999-gone not found" in result.stdout

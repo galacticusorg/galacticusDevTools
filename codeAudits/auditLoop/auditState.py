@@ -398,7 +398,10 @@ def command_sync(arguments):
         changes = []
         exists = common.git(arguments.repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch, check=False)
         if exists.returncode != 0:
-            print("{}: branch {} not found in {}".format(fields["id"], branch, arguments.repo))
+            # Only the audit run's own branches must be in this checkout; other sessions stage
+            # fixes on branches in their own checkouts, so a missing one is expected there.
+            if branch.startswith("audit/"):
+                print("{}: branch {} not found in {}".format(fields["id"], branch, arguments.repo))
             continue
         head = exists.stdout.strip()[:10]
         if fields.get("head") != head:
