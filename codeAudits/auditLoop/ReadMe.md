@@ -88,9 +88,10 @@ If no usage data appears, find out which link is missing:
    subscription logins, not API keys, and only after the first response.
 4. **Interactive works but `-p` doesn't:** use `AUDIT_MODE=tmux`.
 
-In tmux mode, nothing can answer a dialog. Before the first scheduled run, start `claude`
-interactively once in `$AUDIT_REPO` and in `$AUDIT_WORKDIR/wt/audit`, and accept the
-folder-trust prompt. Then check that the permission mode in `AUDIT_CLAUDE_ARGS` starts
+In tmux mode, nothing can answer a dialog. The launcher always starts Claude Code in
+`$AUDIT_REPO`, whatever directory it was started from (`scrontab` starts it in `$HOME`).
+Before the first scheduled run, start `claude` interactively once in `$AUDIT_REPO`, and once
+in `$AUDIT_WORKDIR/wt/audit`, and accept the folder-trust prompt both times. Then check that the permission mode in `AUDIT_CLAUDE_ARGS` starts
 without asking anything. If a session does stall at a prompt, the launcher interrupts it at
 the deadline.
 
