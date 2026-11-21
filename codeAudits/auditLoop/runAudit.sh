@@ -79,6 +79,11 @@ fi
 
 git -C "$AUDIT_REPO" fetch --quiet origin || { say "git fetch failed: not starting"; exit 1; }
 
+# Claude Code runs in the audit checkout, wherever this script was started from (scrontab
+# starts it in $HOME). That folder must already be trusted, since nothing can answer a
+# trust prompt in an unattended run.
+cd "$AUDIT_REPO" || { say "cannot cd to $AUDIT_REPO: not starting"; exit 1; }
+
 # On a machine without a Dropbox client, AUDIT_STATE_SYNC pushes and pulls the state
 # directory (e.g. rclone bisync). Pull first, so this run sees Andrew's latest edits.
 sync_state() {
@@ -150,7 +155,8 @@ Lenses: $AUDIT_LENSES. Backlog cap: $AUDIT_BACKLOG_MAX. Build parallelism: -j$AU
             command="env AUDIT_DONE_FILE=$(printf '%q' "$done_file") AUDIT_DEADLINE=$deadline"
             command="$command AUDIT_SESSION=$(printf '%q' "$session")"
             command="$command $(printf '%q' "$AUDIT_CLAUDE") $AUDIT_CLAUDE_ARGS $(printf '%q' "$prompt")"
-            env -u TMUX -u TMUX_PANE tmux -L "$socket" new-session -d -s "$tmux_name" -x 250 -y 50 "$command"
+            env -u TMUX -u TMUX_PANE tmux -L "$socket" new-session -d -s "$tmux_name" -c "$AUDIT_REPO" \
+                -x 250 -y 50 "$command"
             say "segment $segment: started tmux session (attach: tmux -L $socket attach -t $tmux_name)"
             while env -u TMUX tmux -L "$socket" has-session -t "$tmux_name" 2>/dev/null; do
                 if [ -e "$done_file" ]; then
