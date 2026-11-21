@@ -49,7 +49,7 @@ fi
 : "${AUDIT_GATE_ARGS:=}"
 : "${AUDIT_STATE_SYNC:=}"
 : "${AUDIT_REFUSE_HOSTS:=login*}"
-export AUDIT_STATE_SYNC AUDIT_STATE_DIR AUDIT_REPO AUDIT_WORKDIR AUDIT_BACKLOG_MAX AUDIT_JOBS AUDIT_LENSES AUDIT_GATE_ARGS AUDIT_PYTHON
+export AUDIT_PREFLIGHT_ARGS AUDIT_STATE_SYNC AUDIT_STATE_DIR AUDIT_REPO AUDIT_WORKDIR AUDIT_BACKLOG_MAX AUDIT_JOBS AUDIT_LENSES AUDIT_GATE_ARGS AUDIT_PYTHON
 export AUDIT_TOOLS="$tools"
 
 session="audit-$(date +%Y%m%d-%H%M)-${SLURM_JOB_ID:-$$}"
@@ -162,6 +162,7 @@ Lenses: $AUDIT_LENSES. Backlog cap: $AUDIT_BACKLOG_MAX. Build parallelism: -j$AU
             # running would otherwise hand the session its own, older, environment.
             command="env AUDIT_DONE_FILE=$(printf '%q' "$done_file") AUDIT_DEADLINE=$deadline"
             command="$command AUDIT_SESSION=$(printf '%q' "$session")"
+            command="$command AUDIT_PREFLIGHT_ARGS=$(printf '%q' "$AUDIT_PREFLIGHT_ARGS")"
             command="$command $(printf '%q' "$AUDIT_CLAUDE") $AUDIT_CLAUDE_ARGS $(printf '%q' "$prompt")"
             env -u TMUX -u TMUX_PANE tmux -L "$socket" new-session -d -s "$tmux_name" -c "$AUDIT_REPO" \
                 -x 250 -y 50 "$command"
