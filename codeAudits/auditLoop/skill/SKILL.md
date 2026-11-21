@@ -56,7 +56,9 @@ work directory, lenses, backlog cap and `-j`. The same values are in the environ
 1. Check the environment: `hostname`, `$AUDIT_REPO` is a Galacticus checkout,
    `GALACTICUS_DATA_PATH` is set, and `$AUDIT_WORKDIR` exists. `export GALACTICUS_EXEC_PATH`
    to the worktree from step 4 before any build or test.
-2. **Usage pre-flight:** in segment 1, `gate preflight --min-headroom 10`; in later segments
+2. **Usage pre-flight:** in segment 1, `gate preflight $AUDIT_PREFLIGHT_ARGS` (the launcher's
+   settings, so a lowered `--min-headroom` applies here too; if it is unset, use
+   `--min-headroom 10`); in later segments
    (restarts, or after a wait), `gate check --session $AUDIT_SESSION`, since a restart should
    not stop a run that the per-iteration check would allow. If it exits non-zero, write
    `stopped <reason from the JSON>` (or, for exit 10, `wait-until <wait_until>`) to the done
