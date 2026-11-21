@@ -9,4 +9,7 @@
 #SCRON --mem=128G
 #SCRON --time=13:00:00
 #SCRON --output=/scratch/abenson/auditwork/runs/scron-%j.out
+# (scrontab runs the command line as given. To start a run by hand as a batch job, use
+#  sbatch <same options> --wrap "<full path to runAudit.sh>"; a plain `sbatch runAudit.sh`
+#  runs a copy from Slurm's spool directory, which can not find the tools beside it.)
 47 6 * * 6 $HOME/galacticusDevTools/codeAudits/auditLoop/runAudit.sh

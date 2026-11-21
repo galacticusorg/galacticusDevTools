@@ -24,7 +24,15 @@ fi
 # shellcheck source=/dev/null
 source "$config"
 
-tools="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The tools live beside this script, unless AUDIT_TOOLS says otherwise. A script given
+# to sbatch is copied into Slurm's spool directory and run from there, so it can not find
+# them by its own path: set AUDIT_TOOLS in the config, or submit with --wrap "<full path>".
+tools="${AUDIT_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+if [ ! -f "$tools/usageGate.py" ] || [ ! -f "$tools/auditState.py" ]; then
+    echo "runAudit: the audit tools are not in $tools (submitted with sbatch? Slurm runs a copy" \
+         "of the script; set AUDIT_TOOLS in $config, or use sbatch --wrap \"<full path to runAudit.sh>\")" >&2
+    exit 2
+fi
 : "${AUDIT_REPO:?set AUDIT_REPO in $config}"
 : "${AUDIT_WORKDIR:?set AUDIT_WORKDIR in $config}"
 : "${AUDIT_STATE_DIR:=$HOME/Dropbox/AI/audit}"

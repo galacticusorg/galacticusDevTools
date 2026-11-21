@@ -8,6 +8,10 @@ AUDIT_REPO=/scratch/abenson/galacticus_audit
 # Scratch space: worktrees (one per branch), build logs, run logs, done files.
 AUDIT_WORKDIR=/scratch/abenson/auditwork
 
+# Where the audit tools are (this directory). Needed only if runAudit.sh is submitted with
+# sbatch, which runs a copy of the script from Slurm's spool directory.
+# AUDIT_TOOLS=/path/to/galacticusDevTools/codeAudits/auditLoop
+
 # Shared state (findings, coverage, claims, INDEX.md), synced by Dropbox.
 AUDIT_STATE_DIR=$HOME/Dropbox/AI/audit
 
