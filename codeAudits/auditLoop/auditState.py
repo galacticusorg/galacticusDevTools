@@ -161,6 +161,10 @@ def command_finding_list(arguments):
     root = common.state_dir(arguments.state)
     findings, problems = common.list_findings(root)
     selected = [fields for fields, _ in findings if not arguments.status or fields.get("status") in arguments.status]
+    if arguments.fix_pending:
+        selected = [fields for fields in selected if fields.get("fix_pending") is True]
+    if arguments.found_by:
+        selected = [fields for fields in selected if fields.get("found_by") == arguments.found_by]
     if arguments.json:
         print(json.dumps(selected, indent=1))
     else:
@@ -611,6 +615,9 @@ def main(argv=None):
     listing = finding.add_parser("list")
     listing.add_argument("--status", action="append", choices=common.STATUSES)
     listing.add_argument("--json", action="store_true")
+    listing.add_argument("--fix-pending", action="store_true",
+                         help="only findings marked fix_pending (a fix meant for the next session)")
+    listing.add_argument("--found-by", help="only findings found by this session id")
     listing.set_defaults(function=command_finding_list)
 
     claim = commands.add_parser("claim")

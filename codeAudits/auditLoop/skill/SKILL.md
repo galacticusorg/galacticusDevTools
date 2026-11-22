@@ -79,8 +79,10 @@ work directory, lenses, backlog cap and `-j`. The same values are in the environ
    Record `base=$(git -C "$AUDIT_REPO" rev-parse origin/master)`.
 5. **A restarted segment** (the prompt gives a segment number above 1) resumes: read the run
    log, `state claims` for claims this session still holds, and `state finding list` for
-   findings `found_by` this session that are still `fix-staged` or `in-peer-review`. Finish
-   those (section 3.6 or 3.7) before picking a new target.
+   findings `found_by` this session that are still `fix-staged` or `in-peer-review`, or that
+   are marked `fix_pending` (`state finding list --fix-pending`). Finish those (section 3.6
+   or 3.7) before picking a new target, as long as you are in fix mode and the usage gate
+   allows.
 6. Open the run log `$AUDIT_STATE_DIR/runs/$AUDIT_SESSION.md` (append to it if this is a
    restarted segment). Its first line is a status line, `Status: in progress / done /
    stopped early at X`, which you keep current. Below it, list the settings, the base commit
@@ -220,6 +222,12 @@ Otherwise:
 - if a decision is Andrew's, set `status=parked` with `questions_for_andrew`;
 - if not, leave it `verified` and put the proposed fix in the body.
 
+A fix that meets the bar but can't be finished in this iteration (for example, the test isn't
+written yet, or the session is about to restart) is marked for the next session:
+`state finding set F-NNNN fix_pending=true --note "<what is left>"`, with the remaining
+steps in the body. A restarted segment picks these up first (section 1, step 5). Clear the
+mark (`fix_pending=false`) once the fix is staged, or if it is abandoned.
+
 ### 3.6 Stage the fix
 
 ```bash
@@ -265,8 +273,10 @@ notes, and move on. Always leave the worktree clean and detached:
 
 On `VERDICT: ACCEPT`, set `status=ready-for-review review_rounds=N head=<sha>` and add a
 summary to the `## Review` section: what the reviewer checked, and what was fixed or
-withdrawn in each round. Delete `REVIEW.md` from the worktree, or keep it out of git as
-self-review describes, and copy its content into the finding body.
+withdrawn in each round. Copy `REVIEW.md`'s content into the finding body, then delete `REVIEW.md` from the worktree.
+If the reviewer added `REVIEW.md` to `$(git rev-parse --git-common-dir)/info/exclude`, as
+self-review describes, leave that entry where it is. Never delete or rewrite the `exclude`
+file: it is the repository's local ignore list and may hold other entries.
 
 ### 3.8 Close the iteration
 

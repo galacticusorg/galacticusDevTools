@@ -722,3 +722,17 @@ def test_sync_reports_missing_branches_only_for_audit_branches(repo, state):
     result = run("auditState.py", "sync", "--repo", repo, "--base", "master")
     assert "fix/in-another-checkout" not in result.stdout
     assert "audit/F-9999-gone not found" in result.stdout
+
+
+def test_list_fix_pending_findings(state):
+    pending = run("auditState.py", "finding", "new", "--title", "x", "--severity", "medium", "--category", "crash",
+                  "--file", "a", "--found-by", "s1").stdout.strip()
+    other = run("auditState.py", "finding", "new", "--title", "y", "--severity", "low", "--category", "docs",
+                "--file", "b", "--found-by", "s1").stdout.strip()
+    run("auditState.py", "finding", "set", pending, "fix_pending=true", "--note", "test not written yet")
+    listed = json.loads(run("auditState.py", "finding", "list", "--fix-pending", "--found-by", "s1", "--json").stdout)
+    assert [fields["id"] for fields in listed] == [pending]
+    assert common.load_finding(state, pending)[0]["fix_pending"] is True
+    run("auditState.py", "finding", "set", pending, "fix_pending=false")
+    assert json.loads(run("auditState.py", "finding", "list", "--fix-pending", "--json").stdout) == []
+    assert other
