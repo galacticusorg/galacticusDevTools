@@ -190,6 +190,10 @@ The fields:
 - **Complexity:** `S`, `M` or `L`. It sets the review order, together with `diff_lines`,
   which `sync` fills in.
 
+A `verified` finding with `fix_pending: true` has a fix that a session decided to stage but
+couldn't finish. The next session resumes it first (`finding list --fix-pending`), and clears
+the flag once the fix is staged or abandoned.
+
 To change a status, edit the file or run
 `auditState.py finding set F-0123 status=accepted --note "…"`. The `set` command checks the
 value, and records the change under `## History`.
