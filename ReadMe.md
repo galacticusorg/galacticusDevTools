@@ -6,6 +6,9 @@ the Galacticus model itself; they are utilities used by developers and
 maintainers for housekeeping, data preparation, validation, and CI/CD support
 tasks around the main repository.
 
+AI coding agents (and humans) should read [`AGENTS.md`](AGENTS.md) before
+running, adding or changing a tool.
+
 ## Tools
 
 The tools are grouped by purpose into the directories below. Each directory's
